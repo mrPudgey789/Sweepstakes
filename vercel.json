@@ -1,0 +1,12 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/poll-results",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/recompute-standings",
+      "schedule": "*/10 * * * *"
+    }
+  ]
+}
