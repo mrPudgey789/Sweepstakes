@@ -7,6 +7,10 @@
     {
       "path": "/api/cron/recompute-standings",
       "schedule": "*/10 * * * *"
+    },
+    {
+      "path": "/api/cron/drain-notifications",
+      "schedule": "* * * * *"
     }
   ]
 }

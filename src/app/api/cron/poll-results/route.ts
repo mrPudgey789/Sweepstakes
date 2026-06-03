@@ -2,13 +2,14 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { fetchMatches, mapStage, mapStatus } from '@/lib/football-data'
 import { buildTeamIndex, matchTeam } from '@/lib/team-matcher'
-import { sendNotification } from '@/lib/email'
 import { verifyCronAuth } from '@/lib/cron-auth'
-import { materialiseStandings, computeGroupTables } from '@/lib/standings'
+import { materialiseAllStandings } from '@/lib/standings'
 
 // Runs every 5 minutes via Vercel Cron (see vercel.json).
 // Polls football-data.org for 2026 World Cup results, updates matches,
-// detects eliminations, sends knockout emails, recomputes standings.
+// detects eliminations, enqueues knockout notifications, recomputes standings.
+
+export const maxDuration = 60 // seconds
 
 export async function GET(request: Request) {
   if (!verifyCronAuth(request)) {
@@ -213,15 +214,8 @@ export async function GET(request: Request) {
       eliminatedTeams.push(...groupEliminated)
     }
 
-    // Recompute standings for all active sweepstakes
-    const { data: sweepstakes } = await supabase
-      .from('sweepstakes')
-      .select('id')
-      .in('status', ['open', 'drawn'])
-
-    for (const sw of sweepstakes || []) {
-      await materialiseStandings(supabase, sw.id)
-    }
+    // Recompute standings for ALL active sweepstakes in one batch
+    await materialiseAllStandings(supabase)
 
     unmatchedTeams = Array.from(new Set(unmatchedTeams))
 
@@ -264,12 +258,13 @@ async function eliminateTeam(
     .eq('id', teamId)
 
   // Send knockout notifications across all active sweepstakes
-  await sendKnockoutNotifications(supabase, teamId, teamRow.name, stage)
+  await enqueueKnockoutNotifications(supabase, teamId, teamRow.name, stage)
 
   return teamRow.name
 }
 
-async function sendKnockoutNotifications(
+/** Enqueue knockout notifications (does NOT send; the drain-queue cron sends) */
+async function enqueueKnockoutNotifications(
   supabase: ReturnType<typeof createAdminClient>,
   teamId: string,
   teamName: string,
@@ -282,42 +277,53 @@ async function sendKnockoutNotifications(
 
   if (!entries) return
 
+  // Batch check existing notifications to avoid per-entry queries
+  const entryIds = entries.map(e => e.id)
+  const { data: existingNotifs } = await supabase
+    .from('notifications')
+    .select('entry_id')
+    .in('entry_id', entryIds)
+    .eq('type', 'knockout')
+
+  const alreadySent = new Set((existingNotifs || []).map(n => n.entry_id))
+
+  const toInsert: {
+    entry_id: string
+    type: string
+    status: string
+    payload: Record<string, unknown>
+  }[] = []
+
   for (const entry of entries) {
     const sweepstake = (entry as Record<string, unknown>).sweepstakes as { name: string; status: string }
     if (sweepstake.status === 'closed') continue
-
-    // Idempotency: skip if knockout notification already exists for this entry
-    const { data: existing } = await supabase
-      .from('notifications')
-      .select('id')
-      .eq('entry_id', entry.id)
-      .eq('type', 'knockout')
-      .limit(1)
-      .maybeSingle()
-
-    if (existing) continue
+    if (alreadySent.has(entry.id)) continue
 
     const player = (entry as Record<string, unknown>).players as { email: string; display_name: string | null }
 
-    sendNotification({
+    toInsert.push({
+      entry_id: entry.id,
       type: 'knockout',
-      entryId: entry.id,
-      email: player.email,
-      data: {
+      status: 'queued',
+      payload: {
+        email: player.email,
         playerName: player.display_name || 'there',
         teamName,
         stage,
         sweepstakeName: sweepstake.name,
       },
-    }).catch(console.error)
+    })
+  }
+
+  // Batch insert all queued notifications
+  if (toInsert.length > 0) {
+    await supabase.from('notifications').insert(toInsert)
   }
 }
 
 /**
  * Check if any group is fully played and eliminate teams that did not qualify.
- * In 2026 format: 48 teams, 12 groups of 4, top 2 per group + 8 best 3rd-place advance.
- * For simplicity: bottom team of each completed group is eliminated.
- * In 2022 format: 32 teams, 8 groups of 4, top 2 advance, bottom 2 eliminated.
+ * Computes group tables inline (one query, runs once per poll, not per sweepstake).
  */
 async function checkGroupEliminations(
   supabase: ReturnType<typeof createAdminClient>,
@@ -326,35 +332,60 @@ async function checkGroupEliminations(
 ): Promise<string[]> {
   const eliminated: string[] = []
 
-  // Get team count to determine format
-  const { count: teamCount } = await supabase
-    .from('teams')
-    .select('*', { count: 'exact', head: true })
-    .eq('tournament_id', tournamentId)
+  // Load teams and group matches in parallel
+  const [teamsResult, matchesResult] = await Promise.all([
+    supabase.from('teams').select('id, name, group_letter').eq('tournament_id', tournamentId),
+    supabase.from('matches').select('home_team_id, away_team_id, stage, results(home_score, away_score)')
+      .eq('tournament_id', tournamentId).eq('stage', 'group').eq('status', 'finished'),
+  ])
 
-  const is48Team = (teamCount || 0) > 32
-  const matchesPerGroup = is48Team ? 6 : 6 // 4 teams = 6 matches per group in both formats
+  const teams = teamsResult.data || []
+  const matches = matchesResult.data || []
+  const is48Team = teams.length > 32
 
-  const groupTables = await computeGroupTables(supabase, tournamentId)
+  // Build per-group stats
+  const groupStats = new Map<string, Map<string, { id: string; name: string; pts: number; gd: number; gf: number; played: number }>>()
+  for (const t of teams) {
+    if (!groupStats.has(t.group_letter)) groupStats.set(t.group_letter, new Map())
+    groupStats.get(t.group_letter)!.set(t.id, { id: t.id, name: t.name, pts: 0, gd: 0, gf: 0, played: 0 })
+  }
+
+  const teamGroup = new Map<string, string>()
+  for (const t of teams) teamGroup.set(t.id, t.group_letter)
+
+  for (const m of matches) {
+    const r = Array.isArray(m.results) ? m.results[0] : m.results
+    if (!r || !m.home_team_id || !m.away_team_id) continue
+    const g = teamGroup.get(m.home_team_id as string)
+    if (!g) continue
+    const group = groupStats.get(g)
+    if (!group) continue
+    const home = group.get(m.home_team_id as string)
+    const away = group.get(m.away_team_id as string)
+    if (!home || !away) continue
+
+    home.played++; away.played++
+    home.gf += r.home_score; home.gd += r.home_score - r.away_score
+    away.gf += r.away_score; away.gd += r.away_score - r.home_score
+    if (r.home_score > r.away_score) home.pts += 3
+    else if (r.home_score < r.away_score) away.pts += 3
+    else { home.pts += 1; away.pts += 1 }
+  }
 
   for (const groupLetter of Array.from(groupsToCheck)) {
-    const table = groupTables.get(groupLetter)
-    if (!table) continue
+    const group = groupStats.get(groupLetter)
+    if (!group) continue
 
-    // Check if all group matches are played
-    const totalPlayed = table.reduce((sum, row) => sum + row.played, 0) / 2 // each match counted twice
-    if (totalPlayed < matchesPerGroup) continue // group not complete
+    const rows = Array.from(group.values())
+    const totalPlayed = rows.reduce((sum, r) => sum + r.played, 0) / 2
+    if (totalPlayed < 6) continue // group not complete
 
-    // In 2026: top 2 advance, 3rd might advance (best 3rd-place), 4th is out.
-    // In 2022: top 2 advance, bottom 2 out.
-    // For now: eliminate the bottom team for certain. The 3rd-place team's fate
-    // in 2026 depends on other groups, so we only eliminate the definite 4th.
-    // In 2022: eliminate bottom 2.
-    const eliminateCount = is48Team ? 1 : 2 // safe: 4th is always out in 2026, bottom 2 in 2022
-    const toEliminate = table.slice(table.length - eliminateCount)
+    rows.sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf)
 
-    for (const row of toEliminate) {
-      const result = await eliminateTeam(supabase, row.team_id, `Group ${groupLetter}`)
+    // Bottom 1 in 2026 (4th always out), bottom 2 in 2022
+    const eliminateCount = is48Team ? 1 : 2
+    for (const row of rows.slice(rows.length - eliminateCount)) {
+      const result = await eliminateTeam(supabase, row.id, `Group ${groupLetter}`)
       if (result) eliminated.push(result)
     }
   }

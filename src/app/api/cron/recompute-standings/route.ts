@@ -1,10 +1,9 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { materialiseStandings } from '@/lib/standings'
+import { materialiseAllStandings } from '@/lib/standings'
 import { verifyCronAuth } from '@/lib/cron-auth'
 
-// Recompute standings for all open/drawn sweepstakes.
-// Call after poll-results or after a manual override.
+export const maxDuration = 60 // seconds
 
 export async function GET(request: Request) {
   if (!verifyCronAuth(request)) {
@@ -13,25 +12,10 @@ export async function GET(request: Request) {
 
   try {
     const supabase = createAdminClient()
-
-    const { data: sweepstakes } = await supabase
-      .from('sweepstakes')
-      .select('id')
-      .in('status', ['open', 'drawn'])
-
-    if (!sweepstakes || sweepstakes.length === 0) {
-      return NextResponse.json({ message: 'No active sweepstakes.' })
-    }
-
-    let totalUpdated = 0
-
-    for (const sw of sweepstakes) {
-      const count = await materialiseStandings(supabase, sw.id)
-      totalUpdated += count
-    }
+    const result = await materialiseAllStandings(supabase)
 
     return NextResponse.json({
-      message: `Recomputed standings for ${sweepstakes.length} sweepstakes. ${totalUpdated} rows updated.`,
+      message: `Recomputed standings for ${result.sweepstakes} sweepstakes. ${result.rows} rows.`,
     })
   } catch (err) {
     console.error('Recompute standings error:', err)

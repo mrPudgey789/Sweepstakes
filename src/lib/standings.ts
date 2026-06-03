@@ -1,13 +1,13 @@
-// Compute group tables and sweepstake standings
-// Group points: win 3, draw 1, loss 0
-// Tiebreak: goal difference, then goals scored
+// Standings computation with O(1) tournament state shared across all sweepstakes.
 //
-// Ranking logic (Fix 2):
-// For each team, find their LAST match (highest stage played) and whether they WON or LOST it.
-// Sort key (best to worst):
-//   1. Last-match stage weight DESC (final > third_place > semi > quarter > ...)
-//   2. Won last match before lost last match (within same stage)
-//   3. Group performance tiebreak: points DESC, GD DESC, GF DESC
+// Architecture:
+// 1. computeTournamentRankings() runs ONCE per tournament per cycle. It produces
+//    a Map<teamId, TeamRanking> with stage, won-last-match, group points, GD, GF.
+//    This is the expensive part (reads all matches + results) and it is global.
+// 2. computeSweepstakeStandings() takes the pre-computed rankings and a sweepstake's
+//    entries, then does a trivial sort. No DB calls except loading the entries.
+// 3. materialiseAllStandings() computes tournament rankings once, then materialises
+//    every active sweepstake in batch.
 
 import { SupabaseClient } from '@supabase/supabase-js'
 
@@ -15,20 +15,20 @@ import { SupabaseClient } from '@supabase/supabase-js'
 // Types
 // ---------------------------------------------------------------------------
 
-interface GroupRow {
+export interface TeamRanking {
   team_id: string
   team_name: string
   team_code: string
+  team_status: string
   group_letter: string
-  played: number
-  won: number
-  drawn: number
-  lost: number
-  goals_for: number
-  goals_against: number
+  stage_reached: string
+  stage_weight: number
+  won_last_match: boolean
+  group_points: number
   goal_difference: number
-  points: number
-  position: number
+  goals_for: number
+  is_eliminated: boolean
+  is_champion: boolean
 }
 
 export interface SweepstakeStanding {
@@ -59,93 +59,157 @@ export const STAGE_WEIGHT: Record<string, number> = {
 }
 
 // ---------------------------------------------------------------------------
-// Group tables
+// Step 1: Compute tournament rankings ONCE (the expensive global part)
 // ---------------------------------------------------------------------------
 
-export async function computeGroupTables(
+export async function computeTournamentRankings(
   supabase: SupabaseClient,
   tournamentId: string
-): Promise<Map<string, GroupRow[]>> {
-  const { data: matches } = await supabase
-    .from('matches')
-    .select('id, home_team_id, away_team_id, stage, results(home_score, away_score)')
-    .eq('tournament_id', tournamentId)
-    .eq('stage', 'group')
+): Promise<Map<string, TeamRanking>> {
+  // Load teams and all finished matches in TWO queries (not per-team)
+  const [teamsResult, matchesResult] = await Promise.all([
+    supabase.from('teams').select('id, name, code, group_letter, status').eq('tournament_id', tournamentId),
+    supabase.from('matches')
+      .select('id, home_team_id, away_team_id, stage, results(home_score, away_score, winner_team_id)')
+      .eq('tournament_id', tournamentId)
+      .eq('status', 'finished'),
+  ])
 
-  const { data: teams } = await supabase
-    .from('teams')
-    .select('id, name, code, group_letter')
-    .eq('tournament_id', tournamentId)
+  const teams = teamsResult.data || []
+  const matches = matchesResult.data || []
 
-  if (!teams) return new Map()
-
-  const tables = new Map<string, Map<string, GroupRow>>()
+  // Build group tables in memory
+  const groupStats = new Map<string, { points: number; gd: number; gf: number }>()
   for (const team of teams) {
-    if (!tables.has(team.group_letter)) {
-      tables.set(team.group_letter, new Map())
+    groupStats.set(team.id, { points: 0, gd: 0, gf: 0 })
+  }
+
+  // Build team lookup
+  const teamById = new Map<string, typeof teams[0]>()
+  for (const team of teams) {
+    teamById.set(team.id, team)
+  }
+
+  // Process group matches for points/GD/GF
+  for (const m of matches) {
+    if (m.stage !== 'group') continue
+    const results = m.results as { home_score: number; away_score: number }[] | { home_score: number; away_score: number } | null
+    if (!results) continue
+    if (!m.home_team_id || !m.away_team_id) continue
+
+    const r = Array.isArray(results) ? results[0] : results
+    if (!r || r.home_score === undefined) continue
+
+    const homeId = m.home_team_id as string
+    const awayId = m.away_team_id as string
+    const home = groupStats.get(homeId)
+    const away = groupStats.get(awayId)
+    if (!home || !away) continue
+
+    home.gf += r.home_score; home.gd += r.home_score - r.away_score
+    away.gf += r.away_score; away.gd += r.away_score - r.home_score
+
+    if (r.home_score > r.away_score) { home.points += 3 }
+    else if (r.home_score < r.away_score) { away.points += 3 }
+    else { home.points += 1; away.points += 1 }
+  }
+
+  // Find each team's last match (highest stage) and whether they won it
+  const teamLastMatch = new Map<string, { stage: string; stageWeight: number; won: boolean }>()
+
+  for (const m of matches) {
+    const results = m.results as { winner_team_id: string | null }[] | { winner_team_id: string | null } | null
+    if (!results) continue
+    const r = Array.isArray(results) ? results[0] : results
+    if (!r) continue
+
+    const stage = m.stage as string
+    const weight = STAGE_WEIGHT[stage] || 0
+
+    for (const tid of [m.home_team_id, m.away_team_id]) {
+      if (!tid) continue
+      const teamId = tid as string
+      const current = teamLastMatch.get(teamId)
+      if (!current || weight > current.stageWeight) {
+        teamLastMatch.set(teamId, { stage, stageWeight: weight, won: r.winner_team_id === teamId })
+      }
     }
-    tables.get(team.group_letter)!.set(team.id, {
+  }
+
+  // Build final rankings map
+  const rankings = new Map<string, TeamRanking>()
+  for (const team of teams) {
+    const stats = groupStats.get(team.id) || { points: 0, gd: 0, gf: 0 }
+    const lastMatch = teamLastMatch.get(team.id)
+    const stageReached = lastMatch?.stage || 'group'
+    const wonLastMatch = lastMatch?.won ?? false
+    const isChampion = stageReached === 'final' && wonLastMatch
+
+    rankings.set(team.id, {
       team_id: team.id,
       team_name: team.name,
       team_code: team.code,
+      team_status: isChampion ? 'champion' : team.status,
       group_letter: team.group_letter,
-      played: 0, won: 0, drawn: 0, lost: 0,
-      goals_for: 0, goals_against: 0, goal_difference: 0,
-      points: 0, position: 0,
+      stage_reached: stageReached,
+      stage_weight: lastMatch?.stageWeight || 0,
+      won_last_match: wonLastMatch,
+      group_points: stats.points,
+      goal_difference: stats.gd,
+      goals_for: stats.gf,
+      is_eliminated: team.status === 'eliminated' && !isChampion,
+      is_champion: isChampion,
     })
   }
 
-  for (const match of (matches || [])) {
-    const results = match.results as { home_score: number; away_score: number }[] | null
-    if (!results || results.length === 0) continue
-    if (!match.home_team_id || !match.away_team_id) continue
-
-    const result = Array.isArray(results) ? results[0] : results
-    const homeId = match.home_team_id as string
-    const awayId = match.away_team_id as string
-
-    const homeTeam = teams.find(t => t.id === homeId)
-    if (!homeTeam) continue
-    const groupTable = tables.get(homeTeam.group_letter)
-    if (!groupTable) continue
-
-    const home = groupTable.get(homeId)
-    const away = groupTable.get(awayId)
-    if (!home || !away) continue
-
-    home.played++; away.played++
-    home.goals_for += result.home_score; home.goals_against += result.away_score
-    away.goals_for += result.away_score; away.goals_against += result.home_score
-
-    if (result.home_score > result.away_score) {
-      home.won++; away.lost++; home.points += 3
-    } else if (result.home_score < result.away_score) {
-      away.won++; home.lost++; away.points += 3
-    } else {
-      home.drawn++; away.drawn++; home.points += 1; away.points += 1
-    }
-
-    home.goal_difference = home.goals_for - home.goals_against
-    away.goal_difference = away.goals_for - away.goals_against
-  }
-
-  const result = new Map<string, GroupRow[]>()
-  tables.forEach((teamMap, group) => {
-    const sorted = Array.from(teamMap.values()).sort((a, b) => {
-      if (b.points !== a.points) return b.points - a.points
-      if (b.goal_difference !== a.goal_difference) return b.goal_difference - a.goal_difference
-      if (b.goals_for !== a.goals_for) return b.goals_for - a.goals_for
-      return a.team_name.localeCompare(b.team_name)
-    })
-    sorted.forEach((row, i) => { row.position = i + 1 })
-    result.set(group, sorted)
-  })
-
-  return result
+  return rankings
 }
 
 // ---------------------------------------------------------------------------
-// Sweepstake standings (single source of truth)
+// Step 2: Compute one sweepstake's standings from pre-computed rankings
+// (ZERO additional DB queries for tournament data)
+// ---------------------------------------------------------------------------
+
+export function computeStandingsFromRankings(
+  entries: { id: string; team_id: string | null; player_name: string }[],
+  rankings: Map<string, TeamRanking>
+): SweepstakeStanding[] {
+  const standings: SweepstakeStanding[] = entries.map(e => {
+    const r = e.team_id ? rankings.get(e.team_id) : null
+    return {
+      entry_id: e.id,
+      player_name: e.player_name,
+      team_id: r?.team_id || null,
+      team_name: r?.team_name || null,
+      team_code: r?.team_code || null,
+      team_status: r?.team_status || 'active',
+      stage_reached: r?.stage_reached || 'group',
+      won_last_match: r?.won_last_match ?? false,
+      group_points: r?.group_points || 0,
+      goal_difference: r?.goal_difference || 0,
+      goals_for: r?.goals_for || 0,
+      rank: 0,
+      is_eliminated: r?.is_eliminated ?? false,
+      is_champion: r?.is_champion ?? false,
+    }
+  })
+
+  standings.sort((a, b) => {
+    const weightA = STAGE_WEIGHT[a.stage_reached] || 0
+    const weightB = STAGE_WEIGHT[b.stage_reached] || 0
+    if (weightB !== weightA) return weightB - weightA
+    if (a.won_last_match !== b.won_last_match) return a.won_last_match ? -1 : 1
+    if (b.group_points !== a.group_points) return b.group_points - a.group_points
+    if (b.goal_difference !== a.goal_difference) return b.goal_difference - a.goal_difference
+    return b.goals_for - a.goals_for
+  })
+
+  standings.forEach((s, i) => { s.rank = i + 1 })
+  return standings
+}
+
+// ---------------------------------------------------------------------------
+// Step 3: Convenience wrapper for API reads (single sweepstake)
 // ---------------------------------------------------------------------------
 
 export async function computeSweepstakeStandings(
@@ -158,117 +222,118 @@ export async function computeSweepstakeStandings(
     .eq('id', sweepstakeId)
     .single()
 
-  if (!sweepstake || !sweepstake.tournament_id) return []
+  if (!sweepstake?.tournament_id) return []
 
-  const tournamentId = sweepstake.tournament_id
+  // Load entries and tournament rankings in parallel
+  const [entriesResult, rankings] = await Promise.all([
+    supabase.from('entries')
+      .select('id, team_id, players(display_name)')
+      .eq('sweepstake_id', sweepstakeId),
+    computeTournamentRankings(supabase, sweepstake.tournament_id),
+  ])
 
-  // Get entries with player and team info
-  const { data: entries } = await supabase
-    .from('entries')
-    .select('id, players(display_name), teams(id, name, code, status, group_letter)')
-    .eq('sweepstake_id', sweepstakeId)
+  const entries = (entriesResult.data || []).map(e => ({
+    id: e.id,
+    team_id: e.team_id,
+    player_name: (e.players as unknown as { display_name: string | null })?.display_name || 'Anonymous',
+  }))
 
-  if (!entries) return []
-
-  // Compute group tables for tiebreaking
-  const groupTables = await computeGroupTables(supabase, tournamentId)
-
-  // Get ALL finished matches (group + knockout) with results
-  const { data: allFinished } = await supabase
-    .from('matches')
-    .select('id, home_team_id, away_team_id, stage, results(home_score, away_score, winner_team_id)')
-    .eq('tournament_id', tournamentId)
-    .eq('status', 'finished')
-
-  // For each team, find their last match (highest stage) and whether they won it
-  const teamLastMatch = new Map<string, { stage: string; stageWeight: number; won: boolean }>()
-
-  for (const m of (allFinished || [])) {
-    const results = m.results as { home_score: number; away_score: number; winner_team_id: string | null }[] | null
-    if (!results || results.length === 0) continue
-    const r = Array.isArray(results) ? results[0] : results
-    const stage = m.stage as string
-    const weight = STAGE_WEIGHT[stage] || 0
-
-    for (const tid of [m.home_team_id, m.away_team_id]) {
-      if (!tid) continue
-      const teamId = tid as string
-      const current = teamLastMatch.get(teamId)
-
-      if (!current || weight > current.stageWeight) {
-        const won = r.winner_team_id === teamId
-        // For group stage draws, "won" is false for both, which is fine
-        // since group teams are ranked by points/GD anyway
-        teamLastMatch.set(teamId, { stage, stageWeight: weight, won })
-      }
-    }
-  }
-
-  // Build standings
-  const standings: SweepstakeStanding[] = entries.map(e => {
-    const team = e.teams as unknown as { id: string; name: string; code: string; status: string; group_letter: string } | null
-    const player = e.players as unknown as { display_name: string | null } | null
-
-    let groupPoints = 0
-    let goalDifference = 0
-    let goalsFor = 0
-
-    if (team) {
-      const groupTable = groupTables.get(team.group_letter)
-      const row = groupTable?.find(r => r.team_id === team.id)
-      if (row) {
-        groupPoints = row.points
-        goalDifference = row.goal_difference
-        goalsFor = row.goals_for
-      }
-    }
-
-    const lastMatch = team ? teamLastMatch.get(team.id) : null
-    const stageReached = lastMatch?.stage || 'group'
-    const wonLastMatch = lastMatch?.won ?? false
-    const isChampion = stageReached === 'final' && wonLastMatch
-    const isEliminated = team?.status === 'eliminated'
-
-    return {
-      entry_id: e.id,
-      player_name: player?.display_name || 'Anonymous',
-      team_id: team?.id || null,
-      team_name: team?.name || null,
-      team_code: team?.code || null,
-      team_status: isChampion ? 'champion' : (team?.status || 'active'),
-      stage_reached: stageReached,
-      won_last_match: wonLastMatch,
-      group_points: groupPoints,
-      goal_difference: goalDifference,
-      goals_for: goalsFor,
-      rank: 0,
-      is_eliminated: isEliminated && !isChampion,
-      is_champion: isChampion,
-    }
-  })
-
-  // Sort: stage weight DESC, then won-last-match first, then group performance
-  standings.sort((a, b) => {
-    const weightA = STAGE_WEIGHT[a.stage_reached] || 0
-    const weightB = STAGE_WEIGHT[b.stage_reached] || 0
-    if (weightB !== weightA) return weightB - weightA
-    // Within same stage: winner before loser
-    if (a.won_last_match !== b.won_last_match) return a.won_last_match ? -1 : 1
-    // Tiebreak by group performance
-    if (b.group_points !== a.group_points) return b.group_points - a.group_points
-    if (b.goal_difference !== a.goal_difference) return b.goal_difference - a.goal_difference
-    return b.goals_for - a.goals_for
-  })
-
-  standings.forEach((s, i) => { s.rank = i + 1 })
-
-  return standings
+  return computeStandingsFromRankings(entries, rankings)
 }
 
 // ---------------------------------------------------------------------------
-// Materialise standings to the standings table (used by cron)
+// Step 4: Batch materialise ALL active sweepstakes (used by cron)
+// Computes tournament rankings ONCE, then materialises each sweepstake
+// with zero additional tournament queries.
 // ---------------------------------------------------------------------------
 
+export async function materialiseAllStandings(
+  supabase: SupabaseClient
+): Promise<{ sweepstakes: number; rows: number }> {
+  // Get all active sweepstakes grouped by tournament
+  const { data: sweepstakes } = await supabase
+    .from('sweepstakes')
+    .select('id, tournament_id')
+    .in('status', ['open', 'drawn'])
+
+  if (!sweepstakes || sweepstakes.length === 0) return { sweepstakes: 0, rows: 0 }
+
+  // Group sweepstakes by tournament
+  const byTournament = new Map<string, string[]>()
+  for (const sw of sweepstakes) {
+    if (!sw.tournament_id) continue
+    const list = byTournament.get(sw.tournament_id) || []
+    list.push(sw.id)
+    byTournament.set(sw.tournament_id, list)
+  }
+
+  let totalRows = 0
+
+  for (const [tournamentId, sweepIds] of Array.from(byTournament.entries())) {
+    // Compute tournament rankings ONCE for all sweepstakes in this tournament
+    const rankings = await computeTournamentRankings(supabase, tournamentId)
+
+    // Load ALL entries for all sweepstakes in ONE query
+    const { data: allEntries } = await supabase
+      .from('entries')
+      .select('id, sweepstake_id, team_id, players(display_name)')
+      .in('sweepstake_id', sweepIds)
+
+    if (!allEntries || allEntries.length === 0) continue
+
+    // Group entries by sweepstake
+    const entriesBySweep = new Map<string, typeof allEntries>()
+    for (const e of allEntries) {
+      const list = entriesBySweep.get(e.sweepstake_id) || []
+      list.push(e)
+      entriesBySweep.set(e.sweepstake_id, list)
+    }
+
+    // Delete all old standings in batch
+    await supabase.from('standings').delete().in('sweepstake_id', sweepIds)
+
+    // Compute and insert standings for each sweepstake
+    const allRows: {
+      sweepstake_id: string
+      entry_id: string
+      rank: number
+      team_stage: string
+      is_eliminated: boolean
+    }[] = []
+
+    for (const [sweepId, entries] of Array.from(entriesBySweep.entries())) {
+      const mapped = entries.map(e => ({
+        id: e.id,
+        team_id: e.team_id,
+        player_name: (e.players as unknown as { display_name: string | null })?.display_name || 'Anonymous',
+      }))
+
+      const standings = computeStandingsFromRankings(mapped, rankings)
+
+      for (const s of standings) {
+        allRows.push({
+          sweepstake_id: sweepId,
+          entry_id: s.entry_id,
+          rank: s.rank,
+          team_stage: s.stage_reached,
+          is_eliminated: s.is_eliminated,
+        })
+      }
+    }
+
+    // Insert all standings in batches of 500
+    for (let i = 0; i < allRows.length; i += 500) {
+      const batch = allRows.slice(i, i + 500)
+      await supabase.from('standings').insert(batch)
+    }
+
+    totalRows += allRows.length
+  }
+
+  return { sweepstakes: sweepstakes.length, rows: totalRows }
+}
+
+// Backwards-compatible single-sweepstake materialise
 export async function materialiseStandings(
   supabase: SupabaseClient,
   sweepstakeId: string
@@ -276,10 +341,7 @@ export async function materialiseStandings(
   const standings = await computeSweepstakeStandings(supabase, sweepstakeId)
   if (standings.length === 0) return 0
 
-  // Delete old standings
   await supabase.from('standings').delete().eq('sweepstake_id', sweepstakeId)
-
-  // Insert new standings
   const rows = standings.map(s => ({
     sweepstake_id: sweepstakeId,
     entry_id: s.entry_id,
@@ -287,7 +349,7 @@ export async function materialiseStandings(
     team_stage: s.stage_reached,
     is_eliminated: s.is_eliminated,
   }))
-
   await supabase.from('standings').insert(rows)
   return rows.length
 }
+
