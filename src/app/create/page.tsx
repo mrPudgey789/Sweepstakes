@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { PRICING_BANDS, type PricingBand } from '@/lib/pricing'
@@ -28,6 +28,7 @@ export default function CreateSweepstakePage() {
   const [paypalInput, setPaypalInput] = useState('')
   const [band, setBand] = useState<PricingBand | null>(null)
 
+  const scrollRef = useRef<HTMLDivElement>(null)
   const [organiserId, setOrganiserId] = useState<string | null>(null)
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [authEmail, setAuthEmail] = useState('')
@@ -75,6 +76,10 @@ export default function CreateSweepstakePage() {
       }
     })
   }, [])
+
+  useEffect(() => {
+    scrollRef.current?.scrollTo(0, 0)
+  }, [step])
 
   const effectiveAmount = customAmount ? parseFloat(customAmount) : entryAmount
   const isFree = band === 'free'
@@ -183,9 +188,9 @@ export default function CreateSweepstakePage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col pb-24">
-      {/* Sticky header + progress */}
-      <div className="sticky top-[57px] z-30 bg-white border-b border-gray-100">
+    <div className="fixed inset-0 top-[57px] flex flex-col">
+      {/* Header + progress */}
+      <div className="z-30 bg-white border-b border-gray-100 flex-shrink-0">
         <div className="max-w-xl mx-auto pt-4 pb-3 px-4">
           {step === 1 ? (
             <h1 className="heading text-3xl md:text-4xl text-brand-navy">Create your sweepstake</h1>
@@ -208,8 +213,8 @@ export default function CreateSweepstakePage() {
         </div>
       </div>
 
-      {/* Content */}
-      <div className="flex-1">
+      {/* Content — scrolls internally so inputs never hide behind header */}
+      <div ref={scrollRef} className="flex-1 overflow-y-auto min-h-0 pb-24">
         <div className="max-w-xl mx-auto pt-6 px-4">
 
           {error && (
@@ -621,8 +626,8 @@ export default function CreateSweepstakePage() {
         </div>{/* end max-w-xl */}
       </div>{/* end scrollable */}
 
-      {/* ===== Fixed bottom bar ===== */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t-2 border-gray-100 px-4 py-4 z-40">
+      {/* ===== Bottom bar ===== */}
+      <div className="flex-shrink-0 bg-white border-t-2 border-gray-100 px-4 py-4 z-40">
         <div className="max-w-xl mx-auto flex gap-3">
           {canGoBack && (
             <button onClick={backStep} className="flex-1 btn-secondary !py-3.5" type="button">
