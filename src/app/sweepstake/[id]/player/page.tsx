@@ -301,41 +301,53 @@ export default function PlayerSweepstakePage() {
       })()}
 
       {/* ── 2. Team card ─────────────────────────────────────── */}
-      <div className={`rounded-3xl border-2 p-8 text-center ${
-        isEliminated
-          ? 'bg-red-50 border-red-200'
-          : hasTeam
-          ? 'bg-brand-blue border-brand-blue'
-          : 'bg-gray-50 border-gray-200'
-      }`}>
-        <p className={`text-xs font-bold uppercase tracking-widest mb-2 ${
-          hasTeam && !isEliminated ? 'text-white/60' : 'text-brand-navy/40'
-        }`}>
-          Your team
-        </p>
-        {hasTeam ? (
-          <>
-            <TeamFlag code={entry.teams!.code} size="lg" className="mx-auto mb-3" />
-            <p className={`heading text-5xl md:text-6xl ${
-              isEliminated ? 'text-red-600' : 'text-white'
-            }`}>
-              {entry.teams!.name}
-            </p>
-            <p className={`text-sm font-bold mt-2 ${
-              isEliminated ? 'text-red-500' : 'text-white/60'
-            }`}>
-              {entry.teams!.code}
-            </p>
-            {isEliminated && (
-              <span className="inline-block mt-3 text-xs font-extrabold uppercase tracking-wider px-3 py-1.5 rounded-full bg-red-100 text-red-700 border border-red-200">
+      {hasTeam ? (
+        <Link
+          href={`/sweepstake/${id}/fixtures`}
+          className={`block rounded-3xl border-2 p-8 text-center transition-all hover:shadow-lg ${
+            isEliminated
+              ? 'bg-red-50 border-red-200'
+              : 'bg-brand-blue border-brand-blue'
+          }`}
+        >
+          <p className={`text-xs font-bold uppercase tracking-widest mb-2 ${
+            isEliminated ? 'text-brand-navy/40' : 'text-white/60'
+          }`}>
+            Your team
+          </p>
+          <TeamFlag code={entry.teams!.code} size="lg" className="mx-auto mb-3" />
+          <p className={`heading text-5xl md:text-6xl ${
+            isEliminated ? 'text-red-600' : 'text-white'
+          }`}>
+            {entry.teams!.name}
+          </p>
+          {isEliminated && (
+            <div className="mt-4 space-y-2">
+              <span className="inline-block text-xs font-extrabold uppercase tracking-wider px-3 py-1.5 rounded-full bg-red-100 text-red-700 border border-red-200">
                 Eliminated
               </span>
-            )}
-          </>
-        ) : (
+              {nextMatch?.last_result?.stage && (
+                <p className="text-xs text-red-400 font-semibold">
+                  Knocked out at {nextMatch.last_result.stage.replace(/_/g, ' ')}
+                </p>
+              )}
+              {nextMatch?.last_result?.results && (
+                <p className="text-xs text-brand-navy/30">
+                  {nextMatch.last_result.home_team?.name} {nextMatch.last_result.results.home_score} - {nextMatch.last_result.results.away_score} {nextMatch.last_result.away_team?.name}
+                </p>
+              )}
+            </div>
+          )}
+          {!isEliminated && (
+            <p className="text-sm font-bold mt-2 text-white/60">{entry.teams!.code}</p>
+          )}
+        </Link>
+      ) : (
+        <div className="rounded-3xl border-2 border-gray-200 bg-gray-50 p-8 text-center">
+          <p className="text-xs font-bold uppercase tracking-widest mb-2 text-brand-navy/40">Your team</p>
           <p className="text-2xl font-bold text-brand-navy/30 mt-2">Awaiting draw</p>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* ── 3. Next match card ───────────────────────────────── */}
       {hasTeam && nextMatch && nextMatch.match_state !== 'none' && (
@@ -422,21 +434,11 @@ export default function PlayerSweepstakePage() {
         </div>
       )}
 
-      {/* Knocked out / no matches state */}
-      {hasTeam && (!nextMatch || nextMatch.match_state === 'none') && (
+      {/* No more matches (non-eliminated, tournament over for winner) */}
+      {hasTeam && !isEliminated && (!nextMatch || nextMatch.match_state === 'none') && nextMatch?.last_result && (
         <div className="rounded-2xl border-2 border-brand-navy/10 bg-white p-5 text-center">
-          {isEliminated ? (
-            <>
-              <p className="text-2xl mb-1">🏴</p>
-              <p className="text-sm font-extrabold text-brand-navy">Knocked out</p>
-              {nextMatch?.last_result?.stage && (
-                <p className="text-xs text-brand-navy/40 mt-0.5">Eliminated at: {nextMatch.last_result.stage.replace(/_/g, ' ')}</p>
-              )}
-            </>
-          ) : (
-            <p className="text-sm font-semibold text-brand-navy/50">No more matches scheduled</p>
-          )}
-          {nextMatch?.last_result?.results && (
+          <p className="text-sm font-semibold text-brand-navy/50">Tournament complete</p>
+          {nextMatch.last_result.results && (
             <p className="text-xs text-brand-navy/30 mt-2">
               Last: {nextMatch.last_result.home_team?.name} {nextMatch.last_result.results.home_score} - {nextMatch.last_result.results.away_score} {nextMatch.last_result.away_team?.name}
             </p>
