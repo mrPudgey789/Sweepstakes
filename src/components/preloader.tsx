@@ -70,18 +70,18 @@ export default function Preloader({ onComplete }: PreloaderProps) {
 
       {/* Content */}
       <div className="relative z-10 flex flex-col items-center">
-        {/* World Cup 2026 */}
-        <p
-          className="heading text-2xl sm:text-3xl mb-6"
+        {/* World Cup 2026 logo */}
+        <div
           style={{
-            color: 'white',
             opacity: showTitle ? 1 : 0,
             transform: showTitle ? 'translateY(0)' : 'translateY(10px)',
             transition: 'opacity 0.4s ease-out, transform 0.4s ease-out',
+            width: 'clamp(80px, 20vw, 140px)',
+            marginBottom: 16,
           }}
         >
-          World Cup 2026
-        </p>
+          <img src="/world-cup-logo.svg" alt="FIFA World Cup 2026" className="w-full h-auto" />
+        </div>
 
         {/* SWEEP - drops in from top with a bounce */}
         <div
