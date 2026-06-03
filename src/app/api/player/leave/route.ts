@@ -29,7 +29,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Entry not found' }, { status: 404 })
   }
 
-  const playerEmail = (entry.players as { email: string }).email
+  const playerEmail = (entry.players as unknown as { email: string }).email
   if (playerEmail.toLowerCase() !== user.email?.toLowerCase()) {
     return NextResponse.json({ error: 'Not your entry' }, { status: 403 })
   }
