@@ -27,9 +27,9 @@ export default function HomePage() {
         }}
       >
         {/* World Cup trophy + label */}
-        <div className="flex items-center gap-2 mb-6 self-start sm:self-center">
-          <img src="/world-cup-logo.svg" alt="FIFA World Cup 2026" className="w-6 sm:w-12 h-auto" />
-          <span className="heading text-white text-sm sm:text-3xl">World Cup 2026</span>
+        <div className="flex items-center gap-2 mb-6">
+          <img src="/world-cup-logo.svg" alt="FIFA World Cup 2026" className="w-7 sm:w-10 h-auto" />
+          <span className="heading text-white text-2xl sm:text-3xl">World Cup 2026</span>
         </div>
 
         {/* Logo */}
