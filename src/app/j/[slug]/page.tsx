@@ -1,4 +1,4 @@
-import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { Metadata } from 'next'
 import { JoinFlow } from '@/components/join-flow'
 import { notFound } from 'next/navigation'
@@ -9,7 +9,7 @@ interface Props {
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const supabase = createServerSupabaseClient()
+  const supabase = createAdminClient()
   const { data: sweepstake } = await supabase
     .from('sweepstakes')
     .select('name, entry_amount, currency, mode')
@@ -34,7 +34,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function JoinPage({ params }: Props) {
-  const supabase = createServerSupabaseClient()
+  const supabase = createAdminClient()
 
   const { data: sweepstake } = await supabase
     .from('sweepstakes')
@@ -49,7 +49,7 @@ export default async function JoinPage({ params }: Props) {
       status,
       max_players,
       organiser_id,
-      organisers!inner(display_name, email)
+      organisers!inner(display_name)
     `)
     .eq('share_slug', params.slug)
     .single()
@@ -107,8 +107,7 @@ export default async function JoinPage({ params }: Props) {
   }
 
   const organiserName = (sweepstake as Record<string, unknown>).organisers
-    ? ((sweepstake as Record<string, unknown>).organisers as { display_name: string | null; email: string }).display_name ||
-      ((sweepstake as Record<string, unknown>).organisers as { display_name: string | null; email: string }).email
+    ? ((sweepstake as Record<string, unknown>).organisers as { display_name: string | null }).display_name || 'the organiser'
     : 'the organiser'
 
   return (

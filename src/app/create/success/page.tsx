@@ -85,7 +85,7 @@ function CreateSuccessContent() {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
   const shareLink = `${appUrl}/j/${sweepstake.share_slug}`
   const whatsappText = encodeURIComponent(
-    `Join my World Cup sweepstake! Use code ${sweepstake.join_code} or click: ${shareLink}`
+    `Hey! Please join the World Cup 2026 sweepstake I have created using the link below:\n\n${shareLink}\n\nOr enter code: ${sweepstake.join_code}\n\nSweepstake: ${sweepstake.name}`
   )
 
   function handleCopy() {

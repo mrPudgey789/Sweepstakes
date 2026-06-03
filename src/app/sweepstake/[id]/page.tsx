@@ -200,7 +200,7 @@ export default function SweepstakeManagePage() {
   }
 
   const whatsappText = encodeURIComponent(
-    `Join my sweepstake "${sweepstake.name}"! Use code ${sweepstake.join_code} or this link: ${shareLink}`
+    `Hey! Please join the World Cup 2026 sweepstake I have created using the link below:\n\n${shareLink}\n\nOr enter code: ${sweepstake.join_code}\n\nSweepstake: ${sweepstake.name}`
   )
 
   return (

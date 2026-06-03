@@ -486,7 +486,7 @@ export default function PlayerSweepstakePage() {
       {s.status === 'open' && s.share_slug && s.join_code && (() => {
         const appUrl = typeof window !== 'undefined' ? window.location.origin : ''
         const shareLink = `${appUrl}/j/${s.share_slug}`
-        const whatsappText = encodeURIComponent(`Join our sweepstake "${s.name}"! Use code ${s.join_code} or click: ${shareLink}`)
+        const whatsappText = encodeURIComponent(`Hey! Please join the World Cup 2026 sweepstake I am in using the link below:\n\n${shareLink}\n\nOr enter code: ${s.join_code}\n\nSweepstake: ${s.name}`)
         return (
           <div className="bg-brand-blue rounded-2xl p-5 text-white">
             <p className="text-white/70 text-xs font-bold uppercase tracking-widest mb-3">Invite more players</p>
@@ -654,6 +654,28 @@ export default function PlayerSweepstakePage() {
             <span className="text-sm font-bold text-brand-navy">Organiser tools</span>
             <span className="text-xs text-brand-navy/40 block mt-0.5">Manage players, confirm payments, close sweepstake</span>
           </Link>
+        </div>
+      )}
+
+      {/* ── 11. Leave sweepstake (before draw only) ──────────── */}
+      {!hasTeam && s.status === 'open' && !isOrganiser && (
+        <div className="border-t-2 border-gray-100 pt-6">
+          <button
+            onClick={async () => {
+              if (!confirm('Are you sure you want to leave this sweepstake?')) return
+              const res = await fetch(`/api/player/leave`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ entry_id: entry.id }),
+              })
+              if (res.ok) {
+                window.location.href = '/dashboard'
+              }
+            }}
+            className="w-full text-sm font-bold text-red-500 hover:text-red-700 py-3 transition-colors"
+          >
+            Leave sweepstake
+          </button>
         </div>
       )}
 
