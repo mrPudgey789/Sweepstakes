@@ -50,6 +50,7 @@ interface StandingRow {
   team_name: string | null
   team_code: string | null
   team_status: string | null
+  is_eliminated: boolean
 }
 
 function ordinal(n: number): string {
