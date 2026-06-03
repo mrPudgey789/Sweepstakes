@@ -1,27 +1,39 @@
-import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
+'use client'
+
+import { Inter, Anton } from 'next/font/google'
 import './globals.css'
 import { NavBar } from '@/components/nav-bar'
+import Preloader from '@/components/preloader'
+import { useState } from 'react'
 
-const inter = Inter({ subsets: ['latin'] })
-
-export const metadata: Metadata = {
-  title: 'World Cup Sweepstakes',
-  description: 'Run your World Cup sweepstake with friends and colleagues. Create, share, and track your sweepstake through the 2026 FIFA World Cup.',
-}
+const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
+const anton = Anton({ weight: '400', subsets: ['latin'], variable: '--font-anton' })
 
 export default function RootLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  const [preloaderDone, setPreloaderDone] = useState(false)
+
   return (
     <html lang="en-GB">
-      <body className={`${inter.className} bg-gray-50 text-gray-900 min-h-screen`}>
-        <NavBar />
-        <main className="max-w-5xl mx-auto px-4 py-8">
-          {children}
-        </main>
+      <body className={`${inter.variable} ${anton.variable} font-sans min-h-screen bg-white text-brand-navy`}>
+        {!preloaderDone && (
+          <Preloader onComplete={() => setPreloaderDone(true)} />
+        )}
+        <div
+          className="transition-opacity duration-500"
+          style={{
+            opacity: preloaderDone ? 1 : 0,
+            pointerEvents: preloaderDone ? 'auto' : 'none',
+          }}
+        >
+          <NavBar />
+          <main>
+            {children}
+          </main>
+        </div>
       </body>
     </html>
   )

@@ -57,7 +57,7 @@ export async function POST(
     const { data: teams } = await supabase
       .from('teams')
       .select('id, name')
-      .eq('tournament_id', '00000000-0000-0000-0000-000000002026')
+      .eq('tournament_id', (await supabase.from('tournaments').select('id').eq('name', 'FIFA World Cup 2026').single()).data?.id || '')
 
     if (!teams || teams.length === 0) {
       return NextResponse.json({ error: 'No teams available.' }, { status: 500 })

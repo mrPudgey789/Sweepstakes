@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getStripe } from '@/lib/stripe'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { PRICING_BANDS, type PricingBand } from '@/lib/pricing'
 import Stripe from 'stripe'
 
 export async function POST(request: Request) {
@@ -29,26 +30,38 @@ export async function POST(request: Request) {
 
     const sweepstakeId = session.metadata?.sweepstake_id
     const organiserId = session.metadata?.organiser_id
+    const type = session.metadata?.type
 
     if (sweepstakeId && organiserId) {
       const supabase = createAdminClient()
 
-      // Update payment record
-      await supabase
-        .from('payments')
-        .update({
-          stripe_payment_intent_id: session.payment_intent as string,
-          status: 'succeeded',
-          paid_at: new Date().toISOString(),
-        })
-        .eq('sweepstake_id', sweepstakeId)
+      if (type === 'upgrade') {
+        // Upgrade flow: update max_players to the new band's max
+        const newBand = session.metadata?.new_band as PricingBand | undefined
+        if (newBand && newBand in PRICING_BANDS) {
+          const newMax = PRICING_BANDS[newBand].max
+          await supabase
+            .from('sweepstakes')
+            .update({ max_players: newMax })
+            .eq('id', sweepstakeId)
+        }
+      } else {
+        // Original creation flow: update payment record and open sweepstake
+        await supabase
+          .from('payments')
+          .update({
+            stripe_payment_intent_id: session.payment_intent as string,
+            status: 'succeeded',
+            paid_at: new Date().toISOString(),
+          })
+          .eq('sweepstake_id', sweepstakeId)
 
-      // Move sweepstake from draft to open
-      await supabase
-        .from('sweepstakes')
-        .update({ status: 'open' })
-        .eq('id', sweepstakeId)
-        .eq('status', 'draft')
+        await supabase
+          .from('sweepstakes')
+          .update({ status: 'open' })
+          .eq('id', sweepstakeId)
+          .eq('status', 'draft')
+      }
     }
   }
 

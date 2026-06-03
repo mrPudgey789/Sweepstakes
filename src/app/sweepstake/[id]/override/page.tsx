@@ -33,7 +33,7 @@ export default function OverrideResultPage() {
           home_team:teams!matches_home_team_id_fkey(id, name),
           away_team:teams!matches_away_team_id_fkey(id, name)
         `)
-        .eq('tournament_id', '00000000-0000-0000-0000-000000002026')
+        .eq('tournament_id', (await supabase.from('tournaments').select('id').eq('name', 'FIFA World Cup 2026').single()).data?.id || '')
         .order('kickoff_at')
 
       const processed = (data || []).map((m: Record<string, unknown>) => ({

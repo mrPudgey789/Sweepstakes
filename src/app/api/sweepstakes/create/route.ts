@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { getStripe, PRICING_BANDS, type PricingBand } from '@/lib/stripe'
+import { getStripe } from '@/lib/stripe'
+import { PRICING_BANDS, type PricingBand } from '@/lib/pricing'
 import { generateJoinCode, generateShareSlug } from '@/lib/utils'
 
 export async function POST(request: Request) {
@@ -15,9 +16,12 @@ export async function POST(request: Request) {
       paypal_link,
       band,
       organiser_id,
+      organiser_plays,
+      organiser_name,
+      organiser_email,
     } = body
 
-    if (!name || !mode || !entry_amount || !paypal_link || !band || !organiser_id) {
+    if (!name || !mode || entry_amount === undefined || !paypal_link || !band || !organiser_id) {
       return NextResponse.json({ error: 'Missing required fields.' }, { status: 400 })
     }
 
@@ -27,17 +31,17 @@ export async function POST(request: Request) {
     }
 
     const supabase = createAdminClient()
+    const isFree = bandConfig.amount === 0
 
-    // Generate unique join code and share slug
     const joinCode = generateJoinCode()
     const shareSlug = generateShareSlug()
 
-    // Create the sweepstake in draft status
+    // Free tier goes straight to open; paid starts as draft
     const { data: sweepstake, error: insertError } = await supabase
       .from('sweepstakes')
       .insert({
         organiser_id: organiser_id,
-        tournament_id: '00000000-0000-0000-0000-000000002026',
+        tournament_id: (await supabase.from('tournaments').select('id').eq('name', 'FIFA World Cup 2026').single()).data?.id,
         name,
         mode,
         entry_amount: parseFloat(entry_amount),
@@ -46,7 +50,7 @@ export async function POST(request: Request) {
         paypal_link,
         join_code: joinCode,
         share_slug: shareSlug,
-        status: 'draft',
+        status: isFree ? 'open' : 'draft',
         max_players: bandConfig.max,
       })
       .select()
@@ -58,7 +62,7 @@ export async function POST(request: Request) {
     }
 
     // Create payment record
-    const { error: paymentError } = await supabase
+    await supabase
       .from('payments')
       .insert({
         sweepstake_id: sweepstake.id,
@@ -66,14 +70,50 @@ export async function POST(request: Request) {
         band: band as PricingBand,
         amount: bandConfig.amount / 100,
         currency: 'GBP',
-        status: 'pending',
+        status: isFree ? 'succeeded' : 'pending',
+        paid_at: isFree ? new Date().toISOString() : null,
       })
 
-    if (paymentError) {
-      console.error('Payment insert error:', paymentError)
+    // Add organiser as player 1 if they opted in
+    if (organiser_plays && organiser_email) {
+      // Find or create the player record
+      let { data: player } = await supabase
+        .from('players')
+        .select('id')
+        .eq('email', organiser_email)
+        .single()
+
+      if (!player) {
+        const { data: newPlayer } = await supabase
+          .from('players')
+          .insert({ email: organiser_email, display_name: organiser_name || null })
+          .select('id')
+          .single()
+        player = newPlayer
+      }
+
+      if (player) {
+        await supabase
+          .from('entries')
+          .insert({
+            sweepstake_id: sweepstake.id,
+            player_id: player.id,
+            tc_accepted_at: new Date().toISOString(),
+            payment_state: 'confirmed',
+            confirmed_at: new Date().toISOString(),
+          })
+      }
     }
 
-    // Create Stripe Checkout session
+    // Free tier: no Stripe, return immediately
+    if (isFree) {
+      return NextResponse.json({
+        sweepstake_id: sweepstake.id,
+        checkout_url: null,
+      })
+    }
+
+    // Paid tier: create Stripe Checkout session
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
 
     const session = await getStripe().checkout.sessions.create({
@@ -84,7 +124,7 @@ export async function POST(request: Request) {
             currency: 'gbp',
             product_data: {
               name: `Sweepstake software fee (${bandConfig.label})`,
-              description: `Software fee for "${name}" - this is NOT the entry pot`,
+              description: `Software fee for "${name}"`,
             },
             unit_amount: bandConfig.amount,
           },
@@ -92,7 +132,7 @@ export async function POST(request: Request) {
         },
       ],
       mode: 'payment',
-      success_url: `${appUrl}/create/success?sweepstake_id=${sweepstake.id}&session_id={CHECKOUT_SESSION_ID}`,
+      success_url: `${appUrl}/sweepstake/${sweepstake.id}?paid=1`,
       cancel_url: `${appUrl}/create?cancelled=true`,
       metadata: {
         sweepstake_id: sweepstake.id,

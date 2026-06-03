@@ -2,8 +2,132 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ─── Brand CSS Custom Properties ───────────────────────────────────────── */
+:root {
+  --brand-blue:        #1A56DB;
+  --brand-blue-dark:   #0F3A8A;
+  --brand-blue-light:  #2563EB;
+  --brand-green:       #65FF47;
+  --brand-green-dark:  #4CD930;
+  --brand-ice:         #A5D9FF;
+  --brand-navy:        #0A1628;
+
+  --background:        #ffffff;
+  --foreground:        #0A1628;
+}
+
+/* ─── Base ───────────────────────────────────────────────────────────────── */
 @layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
   body {
-    @apply antialiased;
+    @apply antialiased bg-white text-brand-navy font-sans;
+  }
+
+  /* Selection */
+  ::selection {
+    background-color: var(--brand-green);
+    color: var(--brand-navy);
+  }
+
+  /* Focus ring */
+  :focus-visible {
+    outline: 3px solid var(--brand-green);
+    outline-offset: 2px;
+    border-radius: 0.5rem;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #f0f4f8;
+    border-radius: 9999px;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--brand-blue-light);
+    border-radius: 9999px;
+    border: 2px solid #f0f4f8;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--brand-blue);
+  }
+}
+
+/* ─── Component Utilities ────────────────────────────────────────────────── */
+@layer components {
+
+  /* Display heading — Anton, all caps, aggressive */
+  .heading {
+    font-family: var(--font-anton), Impact, 'Arial Black', sans-serif;
+    text-transform: uppercase;
+    letter-spacing: -0.02em;
+  }
+
+  /* Primary button — FIFA-style pill, flat, bold */
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2
+           bg-brand-green text-brand-navy
+           font-extrabold text-base
+           px-10 py-4
+           rounded-full whitespace-nowrap
+           transition-all duration-150 ease-out
+           hover:brightness-95
+           active:scale-[0.97]
+           disabled:opacity-40 disabled:pointer-events-none
+           cursor-pointer select-none;
+  }
+
+  /* Secondary button — pill outline */
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2
+           bg-transparent text-brand-navy
+           font-extrabold text-base
+           px-10 py-4
+           rounded-full whitespace-nowrap
+           border-2 border-brand-navy
+           transition-all duration-150 ease-out
+           hover:bg-brand-navy hover:text-white
+           active:scale-[0.97]
+           cursor-pointer select-none;
+  }
+
+  /* Light button — for use on dark backgrounds */
+  .btn-light {
+    @apply inline-flex items-center justify-center gap-2
+           bg-brand-ice text-brand-navy
+           font-extrabold text-base
+           px-10 py-4
+           rounded-full
+           transition-all duration-150 ease-out
+           hover:brightness-95
+           active:scale-[0.97]
+           cursor-pointer select-none;
+  }
+
+  /* Card — white background, large radius, generous shadow */
+  .card {
+    @apply bg-white
+           rounded-3xl
+           shadow-[0_4px_32px_-4px_rgba(10,22,40,0.12)]
+           p-8
+           transition-shadow duration-300
+           hover:shadow-[0_8px_48px_-6px_rgba(10,22,40,0.18)];
+  }
+
+  /* Glass — frosted glass effect for overlays and nav */
+  .glass {
+    @apply rounded-3xl
+           border border-white/20
+           backdrop-blur-md;
+    background: rgba(255, 255, 255, 0.55);
+    box-shadow: 0 8px 32px rgba(10, 22, 40, 0.10);
   }
 }

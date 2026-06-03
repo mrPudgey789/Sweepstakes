@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { fetchMatches, mapStage, mapStatus } from '@/lib/football-data'
+import { buildTeamIndex, matchTeam } from '@/lib/team-matcher'
 import { sendNotification } from '@/lib/email'
 
 // This route should be called on a schedule (e.g. every 5 minutes during matches,
@@ -22,23 +23,82 @@ export async function GET(request: Request) {
       return NextResponse.json({ message: 'No matches from API' })
     }
 
+    // Load our teams and build the matcher index
+    const { data: ourTeams } = await supabase
+      .from('teams')
+      .select('id, name, code, aliases')
+      .eq('tournament_id', (await supabase.from('tournaments').select('id').eq('name', 'FIFA World Cup 2026').single()).data?.id || '')
+
+    const teamIndex = buildTeamIndex((ourTeams || []).map(t => ({
+      id: t.id,
+      name: t.name,
+      code: t.code,
+      aliases: (t.aliases as string[]) || [],
+    })))
+
+    // Load our matches for fallback matching
+    const { data: ourMatches } = await supabase
+      .from('matches')
+      .select('id, home_team_id, away_team_id, kickoff_at, external_ref')
+
     let updatedCount = 0
+    let unmatchedTeams: string[] = []
     const eliminatedTeams: string[] = []
 
     for (const fdMatch of fdMatches) {
       const status = mapStatus(fdMatch.status)
       const stage = mapStage(fdMatch.stage)
 
-      // Find matching match by external_ref
-      const { data: match } = await supabase
+      // Try to find matching match by external_ref first
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let matchRow: any = null
+
+      const { data: byRef } = await supabase
         .from('matches')
         .select('id, status, home_team_id, away_team_id')
         .eq('external_ref', String(fdMatch.id))
-        .single()
+        .maybeSingle()
 
-      if (!match) continue
+      if (byRef) {
+        matchRow = byRef
+      } else {
+        // Fallback: match by team pair + date
+        const homeTeam = matchTeam(teamIndex, fdMatch.homeTeam.tla, fdMatch.homeTeam.name)
+        const awayTeam = matchTeam(teamIndex, fdMatch.awayTeam.tla, fdMatch.awayTeam.name)
 
-      const matchRow = match as { id: string; status: string; home_team_id: string | null; away_team_id: string | null }
+        if (!homeTeam) {
+          unmatchedTeams.push(fdMatch.homeTeam.name)
+          continue
+        }
+        if (!awayTeam) {
+          unmatchedTeams.push(fdMatch.awayTeam.name)
+          continue
+        }
+
+        // Find our fixture by team pair + same date
+        const fdDate = fdMatch.utcDate.slice(0, 10)
+        const found = (ourMatches || []).find(m => {
+          const ourDate = m.kickoff_at.slice(0, 10)
+          return ourDate === fdDate && (
+            (m.home_team_id === homeTeam.id && m.away_team_id === awayTeam.id) ||
+            (m.home_team_id === awayTeam.id && m.away_team_id === homeTeam.id)
+          )
+        })
+
+        if (found) {
+          // Store external_ref so future polls match directly
+          await supabase.from('matches').update({ external_ref: String(fdMatch.id) }).eq('id', found.id)
+
+          const { data: refreshed } = await supabase
+            .from('matches')
+            .select('id, status, home_team_id, away_team_id')
+            .eq('id', found.id)
+            .single()
+          matchRow = refreshed
+        }
+      }
+
+      if (!matchRow) continue
 
       // Update match status
       if (matchRow.status !== status) {
@@ -46,6 +106,29 @@ export async function GET(request: Request) {
           .from('matches')
           .update({ status } as Record<string, unknown>)
           .eq('id', matchRow.id)
+      }
+
+      // Write live score for in-play matches
+      if (status === 'live' && fdMatch.score.fullTime.home !== null) {
+        const { data: existingResult } = await supabase
+          .from('results')
+          .select('id, source')
+          .eq('match_id', matchRow.id)
+          .maybeSingle()
+
+        const liveResult = existingResult as { id: string; source: string } | null
+        if (liveResult?.source !== 'manual_override') {
+          await supabase
+            .from('results')
+            .upsert({
+              match_id: matchRow.id,
+              home_score: fdMatch.score.fullTime.home!,
+              away_score: fdMatch.score.fullTime.away!,
+              winner_team_id: null, // not final yet
+              source: 'feed',
+              recorded_at: new Date().toISOString(),
+            } as Record<string, unknown>, { onConflict: 'match_id' })
+        }
       }
 
       // Process finished matches
@@ -116,8 +199,12 @@ export async function GET(request: Request) {
       }
     }
 
+    // Dedupe unmatched teams
+    unmatchedTeams = Array.from(new Set(unmatchedTeams))
+
     return NextResponse.json({
       message: `Polled ${fdMatches.length} matches. Updated ${updatedCount} results. Eliminated: ${eliminatedTeams.join(', ') || 'none'}.`,
+      unmatched_teams: unmatchedTeams,
     })
   } catch (err) {
     console.error('Poll results error:', err)

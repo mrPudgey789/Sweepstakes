@@ -20,6 +20,7 @@ export function generateShareSlug(length = 10): string {
 }
 
 export function buildPaypalLink(handle: string, amount?: number): string {
+  if (!handle || handle === 'manual') return ''
   const base = handle.startsWith('http')
     ? handle
     : `https://paypal.me/${handle}`

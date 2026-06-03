@@ -35,11 +35,10 @@ export default function SignUpPage() {
     }
 
     if (data.user) {
-      // Create organiser record
-      await supabase.from('organisers').insert({
-        email,
-        auth_id: data.user.id,
-        display_name: displayName || null,
+      await fetch('/api/organisers/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, auth_id: data.user.id, display_name: displayName || null }),
       })
       router.push('/dashboard')
     }
@@ -48,74 +47,77 @@ export default function SignUpPage() {
   }
 
   return (
-    <div className="max-w-md mx-auto">
-      <h1 className="text-2xl font-bold mb-6">Create an organiser account</h1>
-      <p className="text-gray-600 mb-6 text-sm">
-        You need an account to create and manage sweepstakes. Players joining
-        your sweepstake do not need an account.
-      </p>
+    <div className="max-w-md mx-auto pt-8">
+      <div className="bg-white rounded-3xl shadow-lg p-8">
+        <h1 className="heading text-3xl md:text-4xl mb-2 text-brand-navy">Create an account</h1>
+        <p className="text-gray-500 mb-8">
+          Set up your organiser account to create and manage sweepstakes.
+        </p>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label htmlFor="displayName" className="block text-sm font-medium mb-1">
-            Display name (optional)
-          </label>
-          <input
-            id="displayName"
-            type="text"
-            value={displayName}
-            onChange={(e) => setDisplayName(e.target.value)}
-            className="w-full border border-gray-300 rounded-md px-3 py-2"
-            placeholder="e.g. Jane from Marketing"
-          />
-        </div>
-        <div>
-          <label htmlFor="email" className="block text-sm font-medium mb-1">
-            Email
-          </label>
-          <input
-            id="email"
-            type="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full border border-gray-300 rounded-md px-3 py-2"
-          />
-        </div>
-        <div>
-          <label htmlFor="password" className="block text-sm font-medium mb-1">
-            Password
-          </label>
-          <input
-            id="password"
-            type="password"
-            required
-            minLength={6}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full border border-gray-300 rounded-md px-3 py-2"
-          />
-        </div>
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <div>
+            <label htmlFor="displayName" className="block text-sm font-semibold mb-2 text-[#0A1628]">
+              Display name
+            </label>
+            <input
+              id="displayName"
+              type="text"
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              className="w-full border-2 border-gray-200 rounded-2xl px-4 py-3 text-base focus:border-[#1A56DB] focus:ring-0 focus:outline-none transition-colors"
+              placeholder="e.g. Jane from Marketing"
+            />
+          </div>
+          <div>
+            <label htmlFor="email" className="block text-sm font-semibold mb-2 text-[#0A1628]">
+              Email
+            </label>
+            <input
+              id="email"
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full border-2 border-gray-200 rounded-2xl px-4 py-3 text-base focus:border-[#1A56DB] focus:ring-0 focus:outline-none transition-colors"
+            />
+          </div>
+          <div>
+            <label htmlFor="password" className="block text-sm font-semibold mb-2 text-[#0A1628]">
+              Password
+            </label>
+            <input
+              id="password"
+              type="password"
+              required
+              minLength={6}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full border-2 border-gray-200 rounded-2xl px-4 py-3 text-base focus:border-[#1A56DB] focus:ring-0 focus:outline-none transition-colors"
+            />
+          </div>
 
-        {error && (
-          <p className="text-red-600 text-sm">{error}</p>
-        )}
+          {error && (
+            <div className="bg-red-50 border-2 border-red-200 text-red-700 px-4 py-3 rounded-2xl text-sm">
+              {error}
+            </div>
+          )}
 
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full bg-green-700 text-white py-2 rounded-md hover:bg-green-800 disabled:opacity-50"
-        >
-          {loading ? 'Creating account...' : 'Create account'}
-        </button>
-      </form>
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-[#65FF47] text-[#0A1628] py-4 rounded-full text-base font-bold hover:bg-[#4CD930] disabled:opacity-50 transition-colors"
+          >
+            {loading ? 'Creating account...' : 'Create account'}
+          </button>
+        </form>
 
-      <p className="mt-4 text-sm text-gray-600">
-        Already have an account?{' '}
-        <Link href="/auth/login" className="text-green-700 hover:underline">
-          Log in
-        </Link>
-      </p>
+        <p className="mt-6 text-sm text-gray-500 text-center">
+          Already have an account?{' '}
+          <Link href="/auth/login" className="text-[#1A56DB] font-semibold hover:underline">
+            Log in
+          </Link>
+        </p>
+      </div>
     </div>
   )
 }

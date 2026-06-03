@@ -39,32 +39,41 @@ export default function JoinByCodePage() {
   }
 
   return (
-    <div className="max-w-md mx-auto text-center">
-      <h1 className="text-2xl font-bold mb-2">Join a sweepstake</h1>
-      <p className="text-gray-600 mb-6 text-sm">
-        Enter the code your organiser gave you.
-      </p>
+    <div className="min-h-[80vh] flex items-center justify-center px-4">
+      <div className="w-full max-w-md text-center">
+        <h1 className="heading text-4xl md:text-5xl text-brand-navy mb-3">
+          Join a sweepstake
+        </h1>
+        <p className="text-gray-500 mb-8">
+          Enter the code your organiser gave you.
+        </p>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <input
-          type="text"
-          value={code}
-          onChange={(e) => setCode(e.target.value.toUpperCase())}
-          placeholder="e.g. WC7K9P"
-          maxLength={8}
-          className="w-full border border-gray-300 rounded-md px-4 py-3 text-center text-2xl tracking-widest font-mono uppercase"
-        />
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <input
+            type="text"
+            value={code}
+            onChange={(e) => setCode(e.target.value.toUpperCase())}
+            placeholder="e.g. WC7K9P"
+            maxLength={8}
+            autoFocus
+            className="w-full border-2 border-gray-200 rounded-2xl px-6 py-5 text-center text-3xl tracking-[0.3em] font-mono uppercase focus:border-brand-blue focus:ring-0 focus:outline-none transition-colors"
+          />
 
-        {error && <p className="text-red-600 text-sm">{error}</p>}
+          {error && (
+            <div className="bg-red-50 border-2 border-red-200 text-red-700 px-4 py-3 rounded-2xl text-sm font-medium">
+              {error}
+            </div>
+          )}
 
-        <button
-          type="submit"
-          disabled={loading || !code.trim()}
-          className="w-full bg-green-700 text-white py-2 rounded-md hover:bg-green-800 disabled:opacity-50"
-        >
-          {loading ? 'Looking up...' : 'Find sweepstake'}
-        </button>
-      </form>
+          <button
+            type="submit"
+            disabled={loading || !code.trim()}
+            className="w-full btn-primary !py-4 !text-lg"
+          >
+            {loading ? 'Looking up...' : 'Find sweepstake'}
+          </button>
+        </form>
+      </div>
     </div>
   )
 }

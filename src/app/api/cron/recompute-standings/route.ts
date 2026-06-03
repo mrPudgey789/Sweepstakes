@@ -68,7 +68,7 @@ export async function GET(request: Request) {
         const { data: teamMatches } = await supabase
           .from('matches')
           .select('stage, status')
-          .eq('tournament_id', '00000000-0000-0000-0000-000000002026')
+          .eq('tournament_id', (await supabase.from('tournaments').select('id').eq('name', 'FIFA World Cup 2026').single()).data?.id || '')
           .or(`home_team_id.eq.${entry.team_id},away_team_id.eq.${entry.team_id}`)
           .eq('status', 'finished')
 

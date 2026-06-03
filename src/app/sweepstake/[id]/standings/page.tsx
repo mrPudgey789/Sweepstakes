@@ -1,21 +1,22 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
 import { useParams } from 'next/navigation'
+import { TeamFlag } from '@/components/team-flag'
 
-interface StandingRow {
-  id: string
+interface Standing {
+  entry_id: string
+  player_name: string
+  team_id: string | null
+  team_name: string | null
+  team_code: string | null
+  team_status: string
+  stage_reached: string
+  group_points: number
+  goal_difference: number
+  goals_for: number
   rank: number
-  team_stage: string
   is_eliminated: boolean
-  entry: {
-    id: string
-    final_position: number | null
-    payment_state: string
-    players: { display_name: string | null; email: string }
-    teams: { name: string; code: string; status: string } | null
-  }
 }
 
 const STAGE_LABELS: Record<string, string> = {
@@ -25,98 +26,105 @@ const STAGE_LABELS: Record<string, string> = {
   quarter: 'Quarter-Finals',
   semi: 'Semi-Finals',
   third_place: 'Third Place',
-  final: 'Final / Winner',
+  final: 'Final',
 }
 
 export default function StandingsPage() {
   const { id } = useParams()
-  const [standings, setStandings] = useState<StandingRow[]>([])
+  const [standings, setStandings] = useState<Standing[]>([])
   const [loading, setLoading] = useState(true)
-  const [noStandings, setNoStandings] = useState(false)
 
   useEffect(() => {
     async function load() {
-      const supabase = createClient()
-
-      const { data } = await supabase
-        .from('standings')
-        .select(`
-          id, rank, team_stage, is_eliminated,
-          entry:entries!inner(
-            id, final_position, payment_state,
-            players!inner(display_name, email),
-            teams(name, code, status)
-          )
-        `)
-        .eq('sweepstake_id', id as string)
-        .order('rank')
-
-      if (!data || data.length === 0) {
-        setNoStandings(true)
-      } else {
-        setStandings(data as unknown as StandingRow[])
+      const res = await fetch(`/api/sweepstakes/standings?sweepstake_id=${id}`)
+      if (res.ok) {
+        setStandings(await res.json())
       }
       setLoading(false)
     }
     load()
   }, [id])
 
-  if (loading) return <p className="text-gray-500">Loading standings...</p>
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 gap-4">
+        <div className="w-12 h-12 rounded-full border-4 border-brand-blue border-t-transparent animate-spin" />
+        <p className="font-extrabold text-brand-navy">Loading standings...</p>
+      </div>
+    )
+  }
 
   return (
-    <div>
-      <h1 className="text-2xl font-bold mb-6">Standings</h1>
+    <div className="max-w-2xl mx-auto px-4 py-8">
+      <button
+        onClick={() => window.history.back()}
+        className="flex items-center gap-1.5 text-sm font-bold text-brand-blue mb-4 hover:underline"
+      >
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        Back
+      </button>
 
-      {noStandings ? (
-        <div className="text-center py-12 text-gray-500">
-          <p>No standings computed yet.</p>
-          <p className="text-sm mt-2">
-            Standings are calculated once match results start coming in.
+      <h1 className="heading text-4xl sm:text-5xl text-brand-navy mb-8">Standings</h1>
+
+      {standings.length === 0 ? (
+        <div className="bg-brand-blue/5 border-2 border-brand-blue/20 rounded-3xl p-8 sm:p-12 text-center">
+          <div className="w-16 h-16 rounded-full bg-brand-blue/10 flex items-center justify-center mx-auto mb-5">
+            <svg className="w-8 h-8 text-brand-blue" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6M18 9h1.5a2.5 2.5 0 0 0 0-5H18M4 22h16M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20 7 22M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20 17 22M18 2H6v7a6 6 0 0 0 12 0V2Z" />
+            </svg>
+          </div>
+          <h2 className="text-xl font-extrabold text-brand-navy mb-2">No standings yet</h2>
+          <p className="text-brand-navy/50 text-sm max-w-xs mx-auto">
+            Standings will appear once the draw has been run and teams are assigned.
           </p>
         </div>
       ) : (
-        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                <th className="text-left px-4 py-2 font-medium w-12">#</th>
-                <th className="text-left px-4 py-2 font-medium">Player</th>
-                <th className="text-left px-4 py-2 font-medium">Team</th>
-                <th className="text-left px-4 py-2 font-medium">Stage reached</th>
-                <th className="text-left px-4 py-2 font-medium">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {standings.map((s) => (
-                <tr key={s.id} className={s.is_eliminated ? 'text-gray-400' : ''}>
-                  <td className="px-4 py-2 font-semibold">{s.rank}</td>
-                  <td className="px-4 py-2">
-                    {s.entry?.players?.display_name || s.entry?.players?.email}
-                  </td>
-                  <td className="px-4 py-2 font-medium">
-                    {s.entry?.teams?.name || 'Unassigned'}
-                  </td>
-                  <td className="px-4 py-2 text-xs">
-                    {STAGE_LABELS[s.team_stage] || s.team_stage}
-                  </td>
-                  <td className="px-4 py-2">
-                    {s.is_eliminated ? (
-                      <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">Out</span>
-                    ) : (
-                      <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">In</span>
-                    )}
-                    {s.entry?.final_position && (
-                      <span className="ml-2 text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded-full">
-                        {s.entry.final_position === 1 ? 'Winner' :
-                         s.entry.final_position === 2 ? '2nd' :
-                         s.entry.final_position === 3 ? '3rd' : ''}
-                      </span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="space-y-2">
+          {standings.map((s) => (
+            <div
+              key={s.entry_id}
+              className={`flex items-center gap-3 border-2 rounded-2xl px-4 py-3 transition-colors ${
+                s.is_eliminated
+                  ? 'border-gray-200 bg-gray-50 opacity-60'
+                  : 'border-brand-navy/10 bg-white'
+              }`}
+            >
+              <span className="w-8 h-8 rounded-full bg-brand-blue/10 flex items-center justify-center text-brand-blue font-extrabold text-sm flex-shrink-0">
+                {s.rank}
+              </span>
+
+              <div className="flex-1 min-w-0">
+                <p className="font-bold text-brand-navy text-sm truncate">{s.player_name}</p>
+                {s.team_name ? (
+                  <span className="flex items-center gap-1.5 mt-0.5">
+                    {s.team_code && <TeamFlag code={s.team_code} size="sm" />}
+                    <span className="text-xs text-brand-navy/50 font-medium">{s.team_name}</span>
+                  </span>
+                ) : (
+                  <span className="text-xs text-brand-navy/30 italic">No team</span>
+                )}
+              </div>
+
+              <div className="text-right flex-shrink-0 space-y-1">
+                <span className="block text-xs text-brand-navy/40 font-medium">
+                  {STAGE_LABELS[s.stage_reached] || s.stage_reached}
+                </span>
+                {s.group_points > 0 && (
+                  <span className="block text-[10px] text-brand-navy/30 font-medium">
+                    {s.group_points}pts, {s.goal_difference > 0 ? '+' : ''}{s.goal_difference} GD
+                  </span>
+                )}
+              </div>
+
+              <div className="flex-shrink-0">
+                {s.is_eliminated ? (
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider px-2 py-1 rounded-full bg-red-100 text-red-700 border border-red-200">Out</span>
+                ) : (
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider px-2 py-1 rounded-full bg-brand-green/20 text-[#1a7a00] border border-brand-green">In</span>
+                )}
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>
