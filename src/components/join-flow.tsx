@@ -202,14 +202,11 @@ export function JoinFlow({
     if (!entryId) return
     setLoading(true)
 
-    const supabase = createClient()
-    await supabase
-      .from('entries')
-      .update({
-        payment_state: 'marked_paid',
-        marked_paid_at: new Date().toISOString(),
-      })
-      .eq('id', entryId)
+    await fetch('/api/player/mark-paid', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ entry_id: entryId }),
+    })
 
     setStep('done')
     setLoading(false)

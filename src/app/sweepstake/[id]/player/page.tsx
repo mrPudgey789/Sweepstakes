@@ -178,15 +178,11 @@ export default function PlayerSweepstakePage() {
 
   async function markPaid() {
     if (!entry) return
-    const supabase = createClient()
-    await supabase
-      .from('entries')
-      .update({
-        payment_state: 'marked_paid',
-        marked_paid_at: new Date().toISOString(),
-      })
-      .eq('id', entry.id)
-
+    await fetch('/api/player/mark-paid', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ entry_id: entry.id }),
+    })
     setEntry({ ...entry, payment_state: 'marked_paid' })
   }
 
