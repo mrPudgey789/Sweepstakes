@@ -20,7 +20,7 @@ export interface OrganiserWinnerSummaryProps {
   organiserName: string
   sweepstakeName: string
   winners: Winner[]
-  totalPot: number
+  totalPot: number | string
   currency?: string
   appUrl: string
 }
@@ -39,10 +39,11 @@ export default function OrganiserWinnerSummary({
   currency = 'GBP',
   appUrl,
 }: OrganiserWinnerSummaryProps) {
+  const potNum = typeof totalPot === 'string' ? parseFloat(totalPot.replace(/[^0-9.]/g, '')) : totalPot
   const formattedPot = new Intl.NumberFormat('en-GB', {
     style: 'currency',
     currency,
-  }).format(totalPot)
+  }).format(potNum || 0)
 
   return (
     <Html lang="en">

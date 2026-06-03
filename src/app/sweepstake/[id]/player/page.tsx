@@ -26,14 +26,6 @@ interface PlayerEntry {
   }
 }
 
-interface OtherPlayer {
-  id: string
-  display_name: string | null
-  team_name: string | null
-  team_code: string | null
-  team_status: string | null
-}
-
 interface MatchTeam {
   name: string
   code: string
@@ -89,7 +81,7 @@ function countdownLabel(isoString: string): string {
 export default function PlayerSweepstakePage() {
   const { id } = useParams()
   const [entry, setEntry] = useState<PlayerEntry | null>(null)
-  const [otherPlayers, setOtherPlayers] = useState<OtherPlayer[]>([])
+  const [playerCount, setPlayerCount] = useState(0)
   const [nextMatch, setNextMatch] = useState<NextMatch | null>(null)
   const [standings, setStandings] = useState<StandingRow[]>([])
   const [loading, setLoading] = useState(true)
@@ -135,10 +127,11 @@ export default function PlayerSweepstakePage() {
 
       setEntry(playerEntry as unknown as PlayerEntry)
 
-      // Load all players via API (bypasses RLS)
+      // Get player count from peers API
       const peersRes = await fetch(`/api/player/peers?sweepstake_id=${id}`)
       if (peersRes.ok) {
-        setOtherPlayers(await peersRes.json())
+        const peers = await peersRes.json()
+        setPlayerCount(peers.length)
       }
 
       // Check if user is also the organiser
@@ -168,7 +161,9 @@ export default function PlayerSweepstakePage() {
       // Load standings
       const standingsRes = await fetch(`/api/sweepstakes/standings?sweepstake_id=${id}`)
       if (standingsRes.ok) {
-        setStandings(await standingsRes.json())
+        const data = await standingsRes.json()
+        setStandings(data)
+        if (!playerCount && data.length > 0) setPlayerCount(data.length)
       }
 
       setLoading(false)
@@ -213,7 +208,6 @@ export default function PlayerSweepstakePage() {
   const myStandingRow = standings.find((row) => row.entry_id === entry.id)
   const myRank = myStandingRow?.rank ?? null
   const totalPlayers = standings.length
-  const top5 = standings.slice(0, 5)
 
   return (
     <div className="max-w-lg mx-auto px-4 py-8 space-y-6">
@@ -242,18 +236,18 @@ export default function PlayerSweepstakePage() {
       </div>
 
       {/* ── Prize pot (after draw) ─────────────────────────── */}
-      {hasTeam && otherPlayers.length > 0 && (
+      {playerCount > 0 && (
         <div className="bg-brand-blue rounded-2xl px-5 py-4 flex items-center justify-between">
           <div>
             <p className="text-white/50 text-[10px] font-bold uppercase tracking-widest">
               {s.winner_structure === 'single' ? 'Winner takes all' : 'Prize pot'}
             </p>
             <p className="heading text-3xl text-white">
-              {formatCurrency(s.entry_amount * otherPlayers.length, s.currency)}
+              {formatCurrency(s.entry_amount * playerCount, s.currency)}
             </p>
           </div>
           <p className="text-white/40 text-xs font-medium">
-            {otherPlayers.length} &times; {formatCurrency(s.entry_amount, s.currency)}
+            {playerCount} &times; {formatCurrency(s.entry_amount, s.currency)}
           </p>
         </div>
       )}
@@ -418,53 +412,44 @@ export default function PlayerSweepstakePage() {
         </div>
       )}
 
-      {/* ── 5. Standings preview (only after draw) ─────────── */}
-      {hasTeam && top5.length > 0 && (
+      {/* ── 5. Standings (unified player + standings table) ── */}
+      {standings.length > 0 && (
         <div>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="heading text-xl text-brand-navy">Standings</h2>
-            <Link
-              href={`/sweepstake/${id}/standings`}
-              className="text-xs font-extrabold uppercase tracking-wider text-brand-blue hover:underline"
-            >
-              See all
-            </Link>
-          </div>
+          <h2 className="heading text-xl text-brand-navy mb-3">
+            {hasTeam ? 'Standings' : `Players (${standings.length})`}
+          </h2>
           <div className="bg-white border-2 border-brand-navy/10 rounded-2xl overflow-hidden">
             <div className="divide-y divide-gray-100">
-              {top5.map((row) => {
+              {standings.map((row) => {
                 const isMe = row.entry_id === entry.id
                 return (
                   <div
                     key={row.entry_id}
-                    className={`flex items-center justify-between px-4 py-3 ${isMe ? 'bg-brand-blue/8' : ''}`}
-                    style={isMe ? { backgroundColor: 'rgba(26,86,219,0.07)' } : {}}
+                    className={`flex items-center gap-3 px-4 py-3 ${isMe ? 'bg-brand-blue/5' : ''} ${row.is_eliminated ? 'opacity-60' : ''}`}
                   >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <span className={`text-xs font-extrabold w-5 text-center ${
-                        row.rank === 1 ? 'text-yellow-500' :
-                        row.rank === 2 ? 'text-gray-400' :
-                        row.rank === 3 ? 'text-amber-600' :
-                        'text-brand-navy/30'
-                      }`}>
-                        {row.rank}
-                      </span>
-                      <div className="min-w-0">
-                        <p className="text-sm font-bold text-brand-navy truncate">
-                          {row.player_name}
-                          {isMe && <span className="text-brand-blue ml-1 text-xs">(you)</span>}
-                        </p>
-                      </div>
+                    <span className={`text-xs font-extrabold w-5 text-center flex-shrink-0 ${
+                      row.rank === 1 ? 'text-yellow-500' :
+                      row.rank === 2 ? 'text-gray-400' :
+                      row.rank === 3 ? 'text-amber-600' :
+                      'text-brand-navy/30'
+                    }`}>
+                      {row.rank}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-brand-navy truncate">
+                        {row.player_name}
+                        {isMe && <span className="text-brand-blue ml-1 text-xs">(you)</span>}
+                      </p>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
                       {row.team_name ? (
                         <>
+                          {row.team_code && <TeamFlag code={row.team_code} size="sm" />}
                           <span className={`text-xs font-bold ${
-                            row.team_status === 'eliminated' ? 'text-red-400 line-through' : 'text-brand-navy/60'
+                            row.is_eliminated ? 'text-red-400 line-through' : 'text-brand-navy/60'
                           }`}>
                             {row.team_name}
                           </span>
-                          {row.team_code && <TeamFlag code={row.team_code} size="sm" />}
                         </>
                       ) : (
                         <span className="text-xs text-brand-navy/30 italic">TBC</span>
@@ -578,45 +563,7 @@ export default function PlayerSweepstakePage() {
         )}
       </div>
 
-      {/* ── 8. All players ───────────────────────────────────── */}
-      <div>
-        <h2 className="heading text-xl text-brand-navy mb-3">Players ({otherPlayers.length})</h2>
-        <div className="bg-white border-2 border-brand-navy/10 rounded-2xl overflow-hidden">
-          {otherPlayers.length === 0 ? (
-            <p className="text-sm text-brand-navy/40 p-5 text-center">No players yet.</p>
-          ) : (
-            <div className="divide-y divide-gray-100">
-              {otherPlayers.map((p, i) => (
-                <div key={p.id} className={`flex items-center justify-between px-4 py-3 ${p.id === entry?.id ? 'bg-brand-blue/5' : ''}`}>
-                  <div className="flex items-center gap-3 min-w-0">
-                    <span className="text-xs font-bold text-brand-navy/30 w-5 text-center">{i + 1}</span>
-                    <div className="min-w-0">
-                      <p className="text-sm font-bold text-brand-navy truncate">
-                        {p.display_name}
-                        {p.id === entry?.id && <span className="text-brand-blue ml-1 text-xs">(you)</span>}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right flex-shrink-0 flex items-center gap-2">
-                    {p.team_name ? (
-                      <>
-                        <span className={`text-xs font-bold ${p.team_status === 'eliminated' ? 'text-red-500 line-through' : 'text-brand-navy/70'}`}>
-                          {p.team_name}
-                        </span>
-                        {p.team_code && <TeamFlag code={p.team_code} size="sm" />}
-                      </>
-                    ) : (
-                      <span className="text-xs text-brand-navy/30 italic">Awaiting draw</span>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* ── 9. Quick links ───────────────────────────────────── */}
+      {/* ── 8. Quick links ───────────────────────────────────── */}
       <div className="grid grid-cols-2 gap-3">
         <Link
           href={`/sweepstake/${id}/fixtures`}

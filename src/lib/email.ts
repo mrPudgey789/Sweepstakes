@@ -1,5 +1,5 @@
 import { sendEmailAsync } from '@/lib/email/send'
-import { formatCurrency, buildPaypalLink } from '@/lib/utils'
+import { buildPaypalLink } from '@/lib/utils'
 
 interface NotificationPayload {
   type: 'join_confirmation' | 'payment_confirmed' | 'knockout' | 'standings_update' | 'organiser_winner'
@@ -23,10 +23,10 @@ export async function sendNotification(payload: NotificationPayload) {
           playerName: data.playerName || 'there',
           sweepstakeName: data.sweepstakeName,
           teamName: data.teamName || null,
-          entryAmount: formatCurrency(data.entryAmount as number, data.currency as string),
+          entryAmount: Number(data.entryAmount) || 0,
           currency: data.currency,
           paypalLink: data.paypalLink && data.paypalLink !== 'manual'
-            ? buildPaypalLink(data.paypalLink as string, data.entryAmount as number)
+            ? buildPaypalLink(data.paypalLink as string, Number(data.entryAmount) || 0)
             : null,
           organiserName: data.organiserName || 'the organiser',
           mode: data.mode,

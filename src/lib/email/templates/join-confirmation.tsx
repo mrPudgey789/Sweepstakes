@@ -14,7 +14,7 @@ export interface JoinConfirmationProps {
   playerName: string
   sweepstakeName: string
   teamName?: string
-  entryAmount: number
+  entryAmount: number | string
   currency: string
   paypalLink?: string
   organiserName: string
@@ -33,10 +33,11 @@ export default function JoinConfirmation({
   mode,
   appUrl,
 }: JoinConfirmationProps) {
+  const amountNum = typeof entryAmount === 'string' ? parseFloat(entryAmount.replace(/[^0-9.]/g, '')) : entryAmount
   const formattedAmount = new Intl.NumberFormat('en-GB', {
     style: 'currency',
     currency: currency ?? 'GBP',
-  }).format(entryAmount)
+  }).format(amountNum || 0)
 
   return (
     <Html lang="en">

@@ -248,7 +248,7 @@ export default function SweepstakeManagePage() {
       </div>
 
       {/* ── Prize pot ─────────────────────────────────────────────── */}
-      {sweepstake.status === 'drawn' && entries.length > 0 && (
+      {entries.length > 0 && (
         <div className="bg-brand-blue rounded-2xl px-5 py-4 flex items-center justify-between">
           <div>
             <p className="text-white/50 text-[10px] font-bold uppercase tracking-widest">
@@ -456,11 +456,11 @@ export default function SweepstakeManagePage() {
         )
       })()}
 
-      {/* ── Players ────────────────────────────────────────────────── */}
+      {/* ── Players / Standings ────────────────────────────────────── */}
       <div>
         <div className="flex items-center justify-between mb-4">
           <h2 className="heading text-2xl text-brand-navy">
-            Players
+            {sweepstake.drawn_at ? 'Standings' : 'Players'}
           </h2>
           <div className="flex items-center gap-3 text-sm font-bold">
             <span className="bg-brand-navy/10 text-brand-navy rounded-full px-3 py-1">
@@ -488,30 +488,33 @@ export default function SweepstakeManagePage() {
             <p className="text-brand-navy/30 text-sm">Share the link or code above to get started.</p>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="bg-white border-2 border-brand-navy/10 rounded-2xl overflow-hidden divide-y divide-gray-100">
             {entries.map((entry, idx) => (
-              <div key={entry.id} className="border-2 border-brand-navy/10 rounded-2xl p-4 hover:border-brand-blue/30 transition-colors">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-9 h-9 bg-brand-blue/10 rounded-full flex items-center justify-center flex-shrink-0">
-                      <span className="text-brand-blue font-extrabold text-sm">{idx + 1}</span>
-                    </div>
-                    <div className="min-w-0">
-                      <p className="font-bold text-brand-navy truncate flex items-center gap-2">
-                        {entry.players?.display_name || entry.players?.email}
-                        {userEmail && entry.players?.email?.toLowerCase() === userEmail && (
-                          <span className="text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full bg-brand-blue/10 text-brand-blue border border-brand-blue/20">Organiser</span>
-                        )}
-                      </p>
-                      <span className="text-xs text-brand-navy/40 font-medium block">
-                        {entry.teams ? (
-                          <span className="flex items-center gap-1.5">
-                            <TeamFlag code={entry.teams.code} size="sm" />
-                            {entry.teams.name}
-                          </span>
-                        ) : (sweepstake.mode === 'random' ? 'Awaiting draw' : 'Not chosen')}
-                      </span>
-                    </div>
+              <div key={entry.id} className={`p-4 ${entry.teams?.status === 'eliminated' ? 'opacity-60' : ''}`}>
+                <div className="flex items-center gap-3">
+                  <span className={`text-xs font-extrabold w-5 text-center flex-shrink-0 ${
+                    idx === 0 ? 'text-yellow-500' :
+                    idx === 1 ? 'text-gray-400' :
+                    idx === 2 ? 'text-amber-600' :
+                    'text-brand-navy/30'
+                  }`}>
+                    {idx + 1}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-brand-navy text-sm truncate flex items-center gap-2">
+                      {entry.players?.display_name || entry.players?.email}
+                      {userEmail && entry.players?.email?.toLowerCase() === userEmail && (
+                        <span className="text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full bg-brand-blue/10 text-brand-blue border border-brand-blue/20">You</span>
+                      )}
+                    </p>
+                    <span className="text-xs text-brand-navy/40 font-medium">
+                      {entry.teams ? (
+                        <span className="flex items-center gap-1.5 mt-0.5">
+                          <TeamFlag code={entry.teams.code} size="sm" />
+                          <span className={entry.teams.status === 'eliminated' ? 'line-through text-red-400' : ''}>{entry.teams.name}</span>
+                        </span>
+                      ) : (sweepstake.mode === 'random' ? 'Awaiting draw' : 'Not chosen')}
+                    </span>
                   </div>
                   {sweepstake.status !== 'drawn' && (
                     <div className="flex items-center gap-2 flex-shrink-0">

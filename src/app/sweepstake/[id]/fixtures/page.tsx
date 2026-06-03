@@ -201,56 +201,81 @@ export default function FixturesPage() {
               {stageMatches.map((m) => {
                 const isLive = m.status === 'live'
                 const isFinished = m.status === 'finished'
+                const homeWon = m.result && m.result.home_score > m.result.away_score
+                const awayWon = m.result && m.result.away_score > m.result.home_score
+                // const isDraw = m.result && m.result.home_score === m.result.away_score
 
                 return (
                   <div
                     key={m.id}
-                    className="bg-white rounded-2xl border-2 border-brand-navy/10 p-5 flex flex-col gap-3 hover:border-brand-blue transition-colors duration-150"
+                    className={`rounded-2xl border-2 p-5 flex flex-col gap-3 transition-colors duration-150 ${
+                      isFinished
+                        ? 'bg-gray-50 border-gray-200'
+                        : isLive
+                        ? 'bg-brand-green/5 border-brand-green'
+                        : 'bg-white border-brand-navy/10 hover:border-brand-blue'
+                    }`}
                   >
+                    {/* Live badge */}
+                    {isLive && (
+                      <div className="flex items-center gap-2">
+                        <span className="relative flex h-2.5 w-2.5">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-green opacity-75" />
+                          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-brand-green" />
+                        </span>
+                        <span className="text-xs font-extrabold uppercase tracking-widest text-brand-green">Live</span>
+                      </div>
+                    )}
+
                     {/* Teams + score row */}
                     <div className="flex items-center justify-between gap-2">
                       {/* Home team */}
                       <div className="flex-1 text-left">
                         <div className="flex items-center gap-2.5">
                           {m.home_team?.code && <TeamFlag code={m.home_team.code} size="lg" />}
-                          <span className="font-extrabold text-brand-navy text-base">{m.home_team?.name || 'TBD'}</span>
+                          <span className={`font-extrabold text-base ${
+                            isFinished && awayWon ? 'text-brand-navy/40' : 'text-brand-navy'
+                          }`}>{m.home_team?.name || 'TBD'}</span>
                         </div>
                         {m.home_team?.id && teamPlayers[m.home_team.id] && (
-                          <span className="block text-xs text-brand-blue font-semibold ml-7">{teamPlayers[m.home_team.id]}</span>
+                          <span className="block text-xs text-brand-blue font-semibold ml-12 mt-0.5">{teamPlayers[m.home_team.id]}</span>
                         )}
                       </div>
 
                       {/* Score or vs */}
                       <div className="flex items-center gap-1 shrink-0">
                         {m.result ? (
-                          <span className="heading text-2xl text-brand-navy tabular-nums">
-                            {m.result.home_score}&nbsp;-&nbsp;{m.result.away_score}
-                          </span>
+                          <div className="flex items-center gap-1.5">
+                            <span className={`heading text-2xl tabular-nums ${homeWon ? 'text-brand-navy' : isFinished ? 'text-brand-navy/40' : 'text-brand-navy'}`}>
+                              {m.result.home_score}
+                            </span>
+                            <span className="heading text-lg text-brand-navy/20">-</span>
+                            <span className={`heading text-2xl tabular-nums ${awayWon ? 'text-brand-navy' : isFinished ? 'text-brand-navy/40' : 'text-brand-navy'}`}>
+                              {m.result.away_score}
+                            </span>
+                          </div>
                         ) : (
-                          <span className="text-gray-400 font-bold text-lg">vs</span>
-                        )}
-                        {m.result?.source === 'manual_override' && (
-                          <span className="text-xs bg-orange-100 text-orange-700 font-bold px-2 py-0.5 rounded-full ml-1">
-                            Override
-                          </span>
+                          <span className="text-gray-300 font-bold text-lg">vs</span>
                         )}
                       </div>
 
                       {/* Away team */}
                       <div className="flex-1 text-right">
                         <div className="flex items-center justify-end gap-2.5">
-                          <span className="font-extrabold text-brand-navy text-base">{m.away_team?.name || 'TBD'}</span>
+                          <span className={`font-extrabold text-base ${
+                            isFinished && homeWon ? 'text-brand-navy/40' : 'text-brand-navy'
+                          }`}>{m.away_team?.name || 'TBD'}</span>
                           {m.away_team?.code && <TeamFlag code={m.away_team.code} size="lg" />}
                         </div>
                         {m.away_team?.id && teamPlayers[m.away_team.id] && (
-                          <span className="block text-xs text-brand-blue font-semibold mr-7">{teamPlayers[m.away_team.id]}</span>
+                          <span className="block text-xs text-brand-blue font-semibold mr-12 mt-0.5">{teamPlayers[m.away_team.id]}</span>
                         )}
                       </div>
                     </div>
 
                     {/* Meta row: date, venue, status badge */}
                     <div className="flex items-center justify-between gap-2 flex-wrap">
-                      <div className="text-xs text-gray-500 font-medium space-y-0.5">
+                      <div className="text-xs text-gray-400 font-medium space-y-0.5">
                         <p>{formatKickoff(m.kickoff_at)}</p>
                         {m.venue && (
                           <p className="flex items-center gap-1">
@@ -263,17 +288,15 @@ export default function FixturesPage() {
                       </div>
 
                       {/* Status badge */}
-                      <span
-                        className={`text-xs font-extrabold px-3 py-1 rounded-full ${
-                          isFinished
-                            ? 'bg-gray-100 text-gray-600'
-                            : isLive
-                            ? 'bg-brand-green text-brand-navy animate-pulse'
-                            : 'bg-brand-ice text-brand-blue'
-                        }`}
-                      >
-                        {isFinished ? 'FT' : isLive ? 'LIVE' : 'Upcoming'}
-                      </span>
+                      {isFinished ? (
+                        <span className="text-xs font-extrabold px-3 py-1 rounded-full bg-gray-200 text-gray-500">
+                          FT
+                        </span>
+                      ) : !isLive ? (
+                        <span className="text-xs font-extrabold px-3 py-1 rounded-full bg-brand-blue/10 text-brand-blue">
+                          Upcoming
+                        </span>
+                      ) : null}
                     </div>
                   </div>
                 )

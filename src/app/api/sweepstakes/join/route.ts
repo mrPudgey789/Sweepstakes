@@ -158,12 +158,24 @@ export async function POST(request: Request) {
       teamName = team?.name || null
     }
 
+    // Get organiser name for email
+    const { data: organiserRow } = await supabase
+      .from('sweepstakes')
+      .select('organisers(display_name)')
+      .eq('id', sweepstake_id)
+      .single()
+    const orgName = (organiserRow as Record<string, unknown>)?.organisers
+      ? ((organiserRow as Record<string, unknown>).organisers as { display_name: string | null }).display_name
+      : null
+
     // Send join confirmation email (non-blocking)
     sendNotification({
       type: 'join_confirmation',
       entryId: entry.id,
       email,
       data: {
+        playerName: display_name,
+        organiserName: orgName || 'the organiser',
         sweepstakeName: sweepstake.name,
         teamName,
         entryAmount: sweepstake.entry_amount,
