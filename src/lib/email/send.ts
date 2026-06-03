@@ -3,7 +3,9 @@ import { render } from '@react-email/render'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createElement } from 'react'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+function getResend() {
+  return new Resend(process.env.RESEND_API_KEY || '')
+}
 
 const FROM_ADDRESS = process.env.EMAIL_FROM || 'Sweep or Weep <notifications@sweeporweep.com>'
 const LOG_ONLY = process.env.MAIL_TRANSPORT === 'log'
@@ -76,7 +78,7 @@ export async function sendEmail(options: SendEmailOptions): Promise<{ success: b
   // Production: send via Resend
   try {
     const html = await render(createElement(template, props))
-    const { data, error } = await resend.emails.send({
+    const { data, error } = await getResend().emails.send({
       from: FROM_ADDRESS,
       to,
       subject,
