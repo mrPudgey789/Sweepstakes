@@ -11,7 +11,8 @@ const LOG_ONLY = process.env.MAIL_TRANSPORT === 'log'
 interface SendEmailOptions {
   to: string
   subject: string
-  template: React.ComponentType<Record<string, unknown>>
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  template: React.ComponentType<any>
   props: Record<string, unknown>
   // Idempotency
   entryId?: string
