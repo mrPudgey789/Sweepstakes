@@ -24,10 +24,10 @@ export async function GET(request: Request) {
   try {
     const supabase = createAdminClient()
 
-    // Get all active sweepstakes
+    // Get all active sweepstakes with their tournament
     const { data: sweepstakes } = await supabase
       .from('sweepstakes')
-      .select('id')
+      .select('id, tournament_id')
       .in('status', ['open', 'drawn'])
 
     if (!sweepstakes || sweepstakes.length === 0) {
@@ -68,7 +68,7 @@ export async function GET(request: Request) {
         const { data: teamMatches } = await supabase
           .from('matches')
           .select('stage, status')
-          .eq('tournament_id', (await supabase.from('tournaments').select('id').eq('name', 'FIFA World Cup 2026').single()).data?.id || '')
+          .eq('tournament_id', sw.tournament_id || '')
           .or(`home_team_id.eq.${entry.team_id},away_team_id.eq.${entry.team_id}`)
           .eq('status', 'finished')
 

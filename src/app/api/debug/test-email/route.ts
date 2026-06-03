@@ -14,9 +14,53 @@ export async function GET(request: Request) {
   }
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+  const type = searchParams.get('type')
   const results: Record<string, unknown> = {}
 
-  // We'll import templates dynamically once they exist
+  // Single-type sends (used by replay harness)
+  if (type === 'knockout') {
+    try {
+      const { default: TeamKnockedOut } = await import('@/lib/email/templates/team-knocked-out')
+      const r = await sendEmail({
+        to,
+        subject: `Bad news: ${searchParams.get('team')} is out`,
+        template: TeamKnockedOut,
+        props: {
+          playerName: searchParams.get('player') || 'there',
+          teamName: searchParams.get('team') || 'Your team',
+          stage: searchParams.get('stage') || 'knockout',
+          sweepstakeName: searchParams.get('sweep') || 'Sweepstake',
+          appUrl,
+        },
+      })
+      return NextResponse.json({ knockout: r })
+    } catch (err) {
+      return NextResponse.json({ error: String(err) }, { status: 500 })
+    }
+  }
+
+  if (type === 'winner_summary') {
+    try {
+      const { default: OrganiserWinnerSummary } = await import('@/lib/email/templates/organiser-winner-summary')
+      const r = await sendEmail({
+        to,
+        subject: `The final whistle: ${searchParams.get('sweep')}`,
+        template: OrganiserWinnerSummary,
+        props: {
+          organiserName: searchParams.get('organiser') || 'Organiser',
+          sweepstakeName: searchParams.get('sweep') || 'Sweepstake',
+          winners: JSON.parse(searchParams.get('winners') || '[]'),
+          totalPot: parseFloat(searchParams.get('pot') || '0'),
+          appUrl,
+        },
+      })
+      return NextResponse.json({ winner_summary: r })
+    } catch (err) {
+      return NextResponse.json({ error: String(err) }, { status: 500 })
+    }
+  }
+
+  // Default: send all test emails
   try {
     const { default: JoinConfirmation } = await import('@/lib/email/templates/join-confirmation')
     const r1 = await sendEmail({

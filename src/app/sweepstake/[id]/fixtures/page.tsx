@@ -48,14 +48,15 @@ export default function FixturesPage() {
   async function loadMatches() {
     const supabase = createClient()
 
-    // Get tournament ID dynamically
-    const { data: tournament } = await supabase
-      .from('tournaments')
-      .select('id')
-      .eq('name', 'FIFA World Cup 2026')
+    // Get tournament from the sweepstake
+    const { data: sweep } = await supabase
+      .from('sweepstakes')
+      .select('tournament_id')
+      .eq('id', id as string)
       .maybeSingle()
 
-    if (!tournament) { setLoading(false); return [] }
+    if (!sweep?.tournament_id) { setLoading(false); return [] }
+    const tournament = { id: sweep.tournament_id }
 
     const { data: rawMatches } = await supabase
       .from('matches')

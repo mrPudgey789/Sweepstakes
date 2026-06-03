@@ -156,22 +156,16 @@ export async function computeSweepstakeStandings(
   supabase: SupabaseClient,
   sweepstakeId: string
 ): Promise<SweepstakeStanding[]> {
-  // Get tournament
+  // Get tournament from the sweepstake's tournament_id
   const { data: sweepstake } = await supabase
     .from('sweepstakes')
-    .select('id')
+    .select('id, tournament_id')
     .eq('id', sweepstakeId)
     .single()
 
-  if (!sweepstake) return []
+  if (!sweepstake || !sweepstake.tournament_id) return []
 
-  const { data: tournament } = await supabase
-    .from('tournaments')
-    .select('id')
-    .eq('name', 'FIFA World Cup 2026')
-    .single()
-
-  if (!tournament) return []
+  const tournamentId = sweepstake.tournament_id
 
   // Get entries with player and team info
   const { data: entries } = await supabase
@@ -182,13 +176,13 @@ export async function computeSweepstakeStandings(
   if (!entries) return []
 
   // Compute group tables
-  const groupTables = await computeGroupTables(supabase, tournament.id)
+  const groupTables = await computeGroupTables(supabase, tournamentId)
 
   // Determine furthest stage reached per team
   const { data: knockoutMatches } = await supabase
     .from('matches')
     .select('id, home_team_id, away_team_id, stage, results(home_score, away_score, winner_team_id)')
-    .eq('tournament_id', tournament.id)
+    .eq('tournament_id', tournamentId)
     .neq('stage', 'group')
 
   const teamStages = new Map<string, string>()
