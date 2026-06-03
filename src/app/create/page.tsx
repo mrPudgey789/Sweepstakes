@@ -37,7 +37,7 @@ export default function CreateSweepstakePage() {
 
   useEffect(() => {
     // Restore wizard state if returning from email verification
-    const saved = sessionStorage.getItem('sweepstake_wizard')
+    const saved = localStorage.getItem('sweepstake_wizard')
     if (saved) {
       try {
         const state = JSON.parse(saved)
@@ -53,7 +53,7 @@ export default function CreateSweepstakePage() {
         if (state.organiserId) setOrganiserId(state.organiserId)
         if (state.organiserPlays !== undefined) setOrganiserPlays(state.organiserPlays)
         if (state.step) setStep(state.step)
-        sessionStorage.removeItem('sweepstake_wizard')
+        localStorage.removeItem('sweepstake_wizard')
       } catch { /* ignore parse errors */ }
     }
 
@@ -126,7 +126,7 @@ export default function CreateSweepstakePage() {
         setOrganiserId(result.id)
         // If email confirmation required, save wizard state and redirect to verify
         if (!data.session) {
-          sessionStorage.setItem('sweepstake_wizard', JSON.stringify({
+          localStorage.setItem('sweepstake_wizard', JSON.stringify({
             name, organiserName, mode, entryAmount, customAmount, winnerStructure,
             paymentMethod, paypalInput, band, organiserId: result.id, organiserPlays,
             step: 7,
