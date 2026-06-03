@@ -226,16 +226,61 @@ async function sendKnockoutNotifications(teamName, teamId, sweepstakeId, stage) 
   return sent
 }
 
-/** Trigger standings recomputation via the app's API */
-async function recomputeStandings() {
-  const cronSecret = process.env.CRON_SECRET || process.env.STRIPE_WEBHOOK_SECRET || 'aura_cron_2026'
-  try {
-    await fetch(`${APP_URL}/api/cron/recompute-standings`, {
-      headers: { Authorization: `Bearer ${cronSecret}` },
+/** Recompute standings directly via Supabase (no HTTP needed) */
+async function recomputeStandings(sweepstakeId, tournamentId) {
+  // Get entries with teams
+  const { data: entries } = await supabase
+    .from('entries')
+    .select('id, team_id, teams(id, status)')
+    .eq('sweepstake_id', sweepstakeId)
+    .not('team_id', 'is', null)
+
+  if (!entries || entries.length === 0) return
+
+  const STAGE_WEIGHT = { group: 1, round_of_16: 3, quarter: 4, semi: 5, third_place: 6, final: 7 }
+
+  const entryStages = []
+  for (const entry of entries) {
+    const teamData = entry.teams
+    if (!teamData) continue
+
+    const { data: teamMatches } = await supabase
+      .from('matches')
+      .select('stage')
+      .eq('tournament_id', tournamentId)
+      .or(`home_team_id.eq.${entry.team_id},away_team_id.eq.${entry.team_id}`)
+      .eq('status', 'finished')
+
+    let bestStage = 'group'
+    let bestWeight = 0
+    for (const m of teamMatches || []) {
+      const w = STAGE_WEIGHT[m.stage] || 0
+      if (w > bestWeight) { bestWeight = w; bestStage = m.stage }
+    }
+
+    entryStages.push({
+      entry_id: entry.id,
+      team_id: entry.team_id,
+      best_stage: bestStage,
+      is_eliminated: teamData.status === 'eliminated',
+      stage_weight: bestWeight,
     })
-  } catch {
-    // Best effort
   }
+
+  entryStages.sort((a, b) => {
+    if (a.is_eliminated !== b.is_eliminated) return a.is_eliminated ? 1 : -1
+    return b.stage_weight - a.stage_weight
+  })
+
+  await supabase.from('standings').delete().eq('sweepstake_id', sweepstakeId)
+  const rows = entryStages.map((e, i) => ({
+    sweepstake_id: sweepstakeId,
+    entry_id: e.entry_id,
+    rank: i + 1,
+    team_stage: e.best_stage,
+    is_eliminated: e.is_eliminated,
+  }))
+  if (rows.length > 0) await supabase.from('standings').insert(rows)
 }
 
 // ---------------------------------------------------------------------------
@@ -340,7 +385,7 @@ async function main() {
     }
 
     // Recompute standings
-    await recomputeStandings()
+    await recomputeStandings(sweepstake_id, tournament_id)
 
     // Delay
     if (!STEP_MODE && !MATCHDAY_MODE) {

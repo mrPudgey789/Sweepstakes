@@ -40,7 +40,12 @@ interface NextMatch {
   home_team?: MatchTeam | null
   away_team?: MatchTeam | null
   results?: { home: number; away: number } | null
-  last_result?: string | null
+  last_result?: {
+    stage?: string
+    home_team?: { name: string; code: string }
+    away_team?: { name: string; code: string }
+    results?: { home_score: number; away_score: number }
+  } | null
 }
 
 interface StandingRow {
@@ -367,9 +372,9 @@ export default function PlayerSweepstakePage() {
           )}
 
           {/* Last result */}
-          {nextMatch.last_result && (
+          {nextMatch.last_result?.results && (
             <p className="text-xs text-white/40 font-medium mt-3 pt-3 border-t border-white/10">
-              Last result: {nextMatch.last_result}
+              Last: {nextMatch.last_result.home_team?.name} {nextMatch.last_result.results.home_score} - {nextMatch.last_result.results.away_score} {nextMatch.last_result.away_team?.name}
             </p>
           )}
         </div>
@@ -382,15 +387,17 @@ export default function PlayerSweepstakePage() {
             <>
               <p className="text-2xl mb-1">🏴</p>
               <p className="text-sm font-extrabold text-brand-navy">Knocked out</p>
-              {nextMatch?.stage && (
-                <p className="text-xs text-brand-navy/40 mt-0.5">Eliminated at: {nextMatch.stage}</p>
+              {nextMatch?.last_result?.stage && (
+                <p className="text-xs text-brand-navy/40 mt-0.5">Eliminated at: {nextMatch.last_result.stage.replace(/_/g, ' ')}</p>
               )}
             </>
           ) : (
             <p className="text-sm font-semibold text-brand-navy/50">No more matches scheduled</p>
           )}
-          {nextMatch?.last_result && (
-            <p className="text-xs text-brand-navy/30 mt-2">Last result: {nextMatch.last_result}</p>
+          {nextMatch?.last_result?.results && (
+            <p className="text-xs text-brand-navy/30 mt-2">
+              Last: {nextMatch.last_result.home_team?.name} {nextMatch.last_result.results.home_score} - {nextMatch.last_result.results.away_score} {nextMatch.last_result.away_team?.name}
+            </p>
           )}
         </div>
       )}
