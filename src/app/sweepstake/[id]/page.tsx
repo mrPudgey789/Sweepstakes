@@ -658,7 +658,7 @@ export default function SweepstakeManagePage() {
 
       {/* ── Quick links ────────────────────────────────────────────── */}
       <div>
-        <h2 className="heading text-2xl text-brand-navy mb-4">Quick links</h2>
+        <h2 className="heading text-xl text-brand-navy mb-4">Quick links</h2>
         <div className="grid grid-cols-2 gap-3">
           <Link
             href={`/sweepstake/${id}/fixtures`}

@@ -597,6 +597,8 @@ export default function PlayerSweepstakePage() {
       </div>
 
       {/* ── 8. Quick links ───────────────────────────────────── */}
+      <div>
+        <h2 className="heading text-xl text-brand-navy mb-4">Quick links</h2>
       <div className="grid grid-cols-2 gap-3">
         <Link
           href={`/sweepstake/${id}/fixtures`}
@@ -618,6 +620,7 @@ export default function PlayerSweepstakePage() {
           </div>
           <svg className="text-brand-navy/20 group-hover:text-brand-blue transition-colors" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
         </Link>
+      </div>
       </div>
 
       {/* ── 10. Organiser tools (only if user is also organiser) ── */}
