@@ -218,7 +218,7 @@ export default function SweepstakeManagePage() {
   )
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-8 space-y-6">
+    <div className="max-w-lg mx-auto px-4 py-8 space-y-6">
 
       {/* ── Header ─────────────────────────────────────────────────── */}
       <div className="flex items-start justify-between gap-4">
@@ -511,68 +511,98 @@ export default function SweepstakeManagePage() {
       })()}
 
       {/* ── Players / Standings ────────────────────────────────────── */}
-      <div>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="heading text-2xl text-brand-navy">
-            {sweepstake.drawn_at ? 'Standings' : 'Players'}
-          </h2>
-          <div className="flex items-center gap-3 text-sm font-bold">
-            <span className="bg-brand-navy/10 text-brand-navy rounded-full px-3 py-1">
-              {entries.length} player{entries.length !== 1 ? 's' : ''}
-            </span>
-            {sweepstake.status !== 'drawn' && confirmedCount > 0 && (
-              <span className="bg-[#65FF47]/20 text-[#1a7a00] border border-[#65FF47] rounded-full px-3 py-1">
-                {confirmedCount} paid
-              </span>
-            )}
-            {sweepstake.status !== 'drawn' && pendingCount > 0 && (
-              <span className="bg-yellow-100 text-yellow-700 border border-yellow-300 rounded-full px-3 py-1">
-                {pendingCount} pending
-              </span>
-            )}
+      {sweepstake.drawn_at && standings.length > 0 ? (
+        /* After draw: clean standings table (same as player page) */
+        <div>
+          <h2 className="heading text-xl text-brand-navy mb-3">Standings</h2>
+          <div className="bg-white border-2 border-brand-navy/10 rounded-2xl overflow-hidden">
+            <div className="divide-y divide-gray-100">
+              {standings.map((row: Record<string, unknown>) => {
+                const isMe = userEmail && (entries.find(e => e.id === row.entry_id)?.players?.email?.toLowerCase() === userEmail)
+                return (
+                  <div
+                    key={row.entry_id as string}
+                    className={`flex items-center gap-3 px-4 py-3 ${isMe ? 'bg-brand-blue/5' : ''} ${row.is_eliminated ? 'opacity-60' : ''}`}
+                  >
+                    <span className={`text-xs font-extrabold w-5 text-center flex-shrink-0 ${
+                      row.rank === 1 ? 'text-yellow-500' :
+                      row.rank === 2 ? 'text-gray-400' :
+                      row.rank === 3 ? 'text-amber-600' :
+                      'text-brand-navy/30'
+                    }`}>
+                      {row.rank as number}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-brand-navy truncate">
+                        {row.player_name as string}
+                        {isMe && <span className="text-brand-blue ml-1 text-xs">(you)</span>}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      {row.team_name ? (
+                        <>
+                          {row.team_code && <TeamFlag code={row.team_code as string} size="sm" />}
+                          <span className={`text-xs font-bold ${
+                            row.is_eliminated ? 'text-red-400 line-through' : 'text-brand-navy/60'
+                          }`}>
+                            {row.team_name as string}
+                          </span>
+                        </>
+                      ) : (
+                        <span className="text-xs text-brand-navy/30 italic">TBC</span>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
           </div>
         </div>
-
-        {entries.length === 0 ? (
-          <div className="border-2 border-dashed border-brand-navy/20 rounded-3xl p-10 text-center">
-            <svg className="w-12 h-12 text-brand-navy/20 mx-auto mb-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M8 2l-5 5 3 2 1-2v15h10V7l1 2 3-2-5-5-2.5 1h-3L8 2z" />
-            </svg>
-            <p className="text-brand-navy/40 font-bold text-lg mb-1">No players yet</p>
-            <p className="text-brand-navy/30 text-sm">Share the link or code above to get started.</p>
+      ) : (
+        /* Before draw: management list with payment badges and remove */
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="heading text-xl text-brand-navy">Players</h2>
+            <div className="flex items-center gap-3 text-sm font-bold">
+              <span className="bg-brand-navy/10 text-brand-navy rounded-full px-3 py-1">
+                {entries.length} player{entries.length !== 1 ? 's' : ''}
+              </span>
+              {confirmedCount > 0 && (
+                <span className="bg-[#65FF47]/20 text-[#1a7a00] border border-[#65FF47] rounded-full px-3 py-1">
+                  {confirmedCount} paid
+                </span>
+              )}
+              {pendingCount > 0 && (
+                <span className="bg-yellow-100 text-yellow-700 border border-yellow-300 rounded-full px-3 py-1">
+                  {pendingCount} pending
+                </span>
+              )}
+            </div>
           </div>
-        ) : (
-          <div className="bg-white border-2 border-brand-navy/10 rounded-2xl overflow-hidden divide-y divide-gray-100">
-            {entries.map((entry, idx) => (
-              <div key={entry.id} className={`p-4 ${entry.teams?.status === 'eliminated' ? 'opacity-60' : ''}`}>
-                <div className="flex items-center gap-3">
-                  <span className={`text-xs font-extrabold w-5 text-center flex-shrink-0 ${
-                    idx === 0 ? 'text-yellow-500' :
-                    idx === 1 ? 'text-gray-400' :
-                    idx === 2 ? 'text-amber-600' :
-                    'text-brand-navy/30'
-                  }`}>
-                    {idx + 1}
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-bold text-brand-navy text-sm truncate flex items-center gap-2">
-                      {entry.players?.display_name || entry.players?.email}
-                      {userEmail && entry.players?.email?.toLowerCase() === userEmail && (
-                        <span className="text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full bg-brand-blue/10 text-brand-blue border border-brand-blue/20">You</span>
-                      )}
-                    </p>
-                    <span className="text-xs text-brand-navy/40 font-medium">
-                      {entry.teams ? (
-                        <span className="flex items-center gap-1.5 mt-0.5">
-                          <TeamFlag code={entry.teams.code} size="sm" />
-                          <span className={entry.teams.status === 'eliminated' ? 'line-through text-red-400' : ''}>{entry.teams.name}</span>
-                        </span>
-                      ) : (sweepstake.mode === 'random' ? 'Awaiting draw' : 'Not chosen')}
+
+          {entries.length === 0 ? (
+            <div className="border-2 border-dashed border-brand-navy/20 rounded-3xl p-10 text-center">
+              <p className="text-brand-navy/40 font-bold text-lg mb-1">No players yet</p>
+              <p className="text-brand-navy/30 text-sm">Share the link or code above to get started.</p>
+            </div>
+          ) : (
+            <div className="bg-white border-2 border-brand-navy/10 rounded-2xl overflow-hidden divide-y divide-gray-100">
+              {entries.map((entry, idx) => (
+                <div key={entry.id} className="p-4">
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs font-extrabold w-5 text-center flex-shrink-0 text-brand-navy/30">
+                      {idx + 1}
                     </span>
-                  </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    {sweepstake.status !== 'drawn' && (
-                      entry.payment_state === 'confirmed' ? (
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-brand-navy text-sm truncate flex items-center gap-2">
+                        {entry.players?.display_name || entry.players?.email}
+                        {userEmail && entry.players?.email?.toLowerCase() === userEmail && (
+                          <span className="text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full bg-brand-blue/10 text-brand-blue border border-brand-blue/20">You</span>
+                        )}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      {entry.payment_state === 'confirmed' ? (
                         <span className="inline-flex items-center gap-1 text-xs font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-full bg-brand-green/20 text-[#1a7a00] border border-brand-green">
                           <CheckIcon /> Paid
                         </span>
@@ -584,51 +614,51 @@ export default function SweepstakeManagePage() {
                         <span className="text-xs font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-full bg-gray-100 text-gray-500 border border-gray-200">
                           Unpaid
                         </span>
-                      )
-                    )}
-                    {sweepstake.status !== 'drawn' && sweepstake.status !== 'closed' && !(userEmail && entry.players?.email?.toLowerCase() === userEmail) && (
+                      )}
+                      {!(userEmail && entry.players?.email?.toLowerCase() === userEmail) && (
+                        <button
+                          onClick={async () => {
+                            if (!confirm(`Remove ${entry.players?.display_name || 'this player'} from the sweepstake?`)) return
+                            await fetch(`/api/sweepstakes/${id}/remove-player`, {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ entry_id: entry.id }),
+                            })
+                            await load()
+                          }}
+                          className="text-xs font-bold text-red-500 hover:text-red-700 transition-colors"
+                          title="Remove player"
+                        >
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <line x1="18" y1="6" x2="6" y2="18" />
+                            <line x1="6" y1="6" x2="18" y2="18" />
+                          </svg>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  {entry.payment_state === 'marked_paid' && (
+                    <div className="flex gap-2 mt-3 pt-3 border-t border-brand-navy/5">
                       <button
-                        onClick={async () => {
-                          if (!confirm(`Remove ${entry.players?.display_name || 'this player'} from the sweepstake?`)) return
-                          await fetch(`/api/sweepstakes/${id}/remove-player`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ entry_id: entry.id }),
-                          })
-                          await load()
-                        }}
-                        className="text-xs font-bold text-red-500 hover:text-red-700 transition-colors"
-                        title="Remove player"
+                        onClick={() => confirmPayment(entry.id, 'confirm')}
+                        className="flex-1 text-sm font-bold text-[#1a7a00] bg-brand-green/20 border-2 border-brand-green hover:bg-brand-green/30 py-2.5 rounded-full transition-colors"
                       >
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                          <line x1="18" y1="6" x2="6" y2="18" />
-                          <line x1="6" y1="6" x2="18" y2="18" />
-                        </svg>
+                        Confirm payment
                       </button>
-                    )}
-                  </div>
+                      <button
+                        onClick={() => confirmPayment(entry.id, 'reject')}
+                        className="text-sm font-bold text-red-600 bg-red-50 border-2 border-red-200 hover:bg-red-100 px-5 py-2.5 rounded-full transition-colors"
+                      >
+                        Reset
+                      </button>
+                    </div>
+                  )}
                 </div>
-                {entry.payment_state === 'marked_paid' && sweepstake.status !== 'drawn' && (
-                  <div className="flex gap-2 mt-3 pt-3 border-t border-brand-navy/5">
-                    <button
-                      onClick={() => confirmPayment(entry.id, 'confirm')}
-                      className="flex-1 text-sm font-bold text-[#1a7a00] bg-brand-green/20 border-2 border-brand-green hover:bg-brand-green/30 py-2.5 rounded-full transition-colors"
-                    >
-                      Confirm payment
-                    </button>
-                    <button
-                      onClick={() => confirmPayment(entry.id, 'reject')}
-                      className="text-sm font-bold text-red-600 bg-red-50 border-2 border-red-200 hover:bg-red-100 px-5 py-2.5 rounded-full transition-colors"
-                    >
-                      Reset
-                    </button>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ── Quick links ────────────────────────────────────────────── */}
       <div>

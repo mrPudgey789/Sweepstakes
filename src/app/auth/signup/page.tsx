@@ -72,7 +72,7 @@ export default function SignUpPage() {
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
               className="w-full border-2 border-gray-200 rounded-2xl px-4 py-3 text-base focus:border-[#1A56DB] focus:ring-0 focus:outline-none transition-colors"
-              placeholder="e.g. Jane from Marketing"
+              placeholder="e.g. Jane Smith"
             />
           </div>
           <div>

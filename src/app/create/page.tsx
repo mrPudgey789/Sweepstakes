@@ -230,13 +230,13 @@ export default function CreateSweepstakePage() {
           {!isLoggedIn && (
             <div>
               <label className="block text-lg font-bold mb-3 text-brand-navy">
-                Your name
+                Your full name
               </label>
               <input
                 type="text"
                 value={organiserName}
                 onChange={(e) => setOrganiserName(e.target.value)}
-                placeholder="e.g. Jane"
+                placeholder="e.g. Jane Smith"
                 className="w-full border-2 border-gray-200 rounded-2xl px-5 py-4 text-lg focus:border-brand-blue focus:ring-0 focus:outline-none transition-colors"
                 autoFocus
               />

@@ -256,7 +256,7 @@ export function JoinFlow({
                   required
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
-                  placeholder="e.g. James"
+                  placeholder="e.g. James Smith"
                   className={inputClass}
                 />
                 <p className="text-brand-blue/50 text-xs mt-2">
@@ -274,14 +274,14 @@ export function JoinFlow({
 
               <div>
                 <label className="block text-brand-blue text-xs font-bold uppercase tracking-widest mb-2">
-                  Your name <span className="text-brand-green">*</span>
+                  Your full name <span className="text-brand-green">*</span>
                 </label>
                 <input
                   type="text"
                   required
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
-                  placeholder="e.g. James"
+                  placeholder="e.g. James Smith"
                   className={inputClass}
                 />
                 <p className="text-brand-blue/50 text-xs mt-2">
