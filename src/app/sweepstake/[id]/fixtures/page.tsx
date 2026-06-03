@@ -13,7 +13,7 @@ interface Match {
   status: string
   home_team: { id: string; name: string; code: string } | null
   away_team: { id: string; name: string; code: string } | null
-  result: { home_score: number; away_score: number; source: string } | null
+  result: { home_score: number; away_score: number; winner_team_id: string | null; source: string } | null
 }
 
 const STAGE_ORDER = ['group', 'round_of_32', 'round_of_16', 'quarter', 'semi', 'third_place', 'final']
@@ -64,7 +64,7 @@ export default function FixturesPage() {
         id, stage, kickoff_at, venue, status, match_number, home_slot, away_slot,
         home_team:teams!matches_home_team_id_fkey(id, name, code),
         away_team:teams!matches_away_team_id_fkey(id, name, code),
-        result:results(home_score, away_score, source)
+        result:results(home_score, away_score, winner_team_id, source)
       `)
       .eq('tournament_id', tournament.id)
       .order('kickoff_at')
@@ -202,9 +202,11 @@ export default function FixturesPage() {
               {stageMatches.map((m) => {
                 const isLive = m.status === 'live'
                 const isFinished = m.status === 'finished'
-                const homeWon = m.result && m.result.home_score > m.result.away_score
-                const awayWon = m.result && m.result.away_score > m.result.home_score
-                // const isDraw = m.result && m.result.home_score === m.result.away_score
+                // Use winner_team_id as source of truth (handles penalties)
+                const homeWon = m.result && m.result.winner_team_id === m.home_team?.id
+                const awayWon = m.result && m.result.winner_team_id === m.away_team?.id
+                const isScoreDraw = m.result && m.result.home_score === m.result.away_score
+                const wonOnPenalties = isFinished && isScoreDraw && (homeWon || awayWon)
 
                 return (
                   <div
@@ -244,17 +246,24 @@ export default function FixturesPage() {
                       </div>
 
                       {/* Score or vs */}
-                      <div className="flex items-center gap-1 shrink-0">
+                      <div className="flex flex-col items-center gap-0.5 shrink-0">
                         {m.result ? (
-                          <div className="flex items-center gap-1.5">
-                            <span className={`heading text-2xl tabular-nums ${homeWon ? 'text-brand-navy' : isFinished ? 'text-brand-navy/40' : 'text-brand-navy'}`}>
-                              {m.result.home_score}
-                            </span>
-                            <span className="heading text-lg text-brand-navy/20">-</span>
-                            <span className={`heading text-2xl tabular-nums ${awayWon ? 'text-brand-navy' : isFinished ? 'text-brand-navy/40' : 'text-brand-navy'}`}>
-                              {m.result.away_score}
-                            </span>
-                          </div>
+                          <>
+                            <div className="flex items-center gap-1.5">
+                              <span className={`heading text-2xl tabular-nums ${homeWon ? 'text-brand-navy' : isFinished ? 'text-brand-navy/40' : 'text-brand-navy'}`}>
+                                {m.result.home_score}
+                              </span>
+                              <span className="heading text-lg text-brand-navy/20">-</span>
+                              <span className={`heading text-2xl tabular-nums ${awayWon ? 'text-brand-navy' : isFinished ? 'text-brand-navy/40' : 'text-brand-navy'}`}>
+                                {m.result.away_score}
+                              </span>
+                            </div>
+                            {wonOnPenalties && (
+                              <span className="text-[10px] font-bold text-brand-navy/40">
+                                {homeWon ? m.home_team?.name : m.away_team?.name} won on pens
+                              </span>
+                            )}
+                          </>
                         ) : (
                           <span className="text-gray-300 font-bold text-lg">vs</span>
                         )}

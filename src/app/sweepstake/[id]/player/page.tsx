@@ -55,7 +55,9 @@ interface StandingRow {
   team_name: string | null
   team_code: string | null
   team_status: string | null
+  stage_reached: string
   is_eliminated: boolean
+  is_champion: boolean
 }
 
 function ordinal(n: number): string {
@@ -241,22 +243,62 @@ export default function PlayerSweepstakePage() {
         </p>
       </div>
 
-      {/* ── Prize pot (after draw) ─────────────────────────── */}
-      {playerCount > 0 && (
-        <div className="bg-brand-blue rounded-2xl px-5 py-4 flex items-center justify-between">
-          <div>
-            <p className="text-white/50 text-[10px] font-bold uppercase tracking-widest">
-              {s.winner_structure === 'single' ? 'Winner takes all' : 'Prize pot'}
-            </p>
-            <p className="heading text-3xl text-white">
-              {formatCurrency(s.entry_amount * playerCount, s.currency)}
-            </p>
+      {/* ── Prize pot + winners ─────────────────────────────── */}
+      {playerCount > 0 && (() => {
+        const champion = standings.find(r => r.is_champion)
+        const top3 = standings.slice(0, 3)
+        const isResolved = champion !== undefined
+
+        return (
+          <div className="bg-brand-blue rounded-2xl px-5 py-4">
+            {isResolved && (
+              <div className="mb-4 pb-4 border-b border-white/20">
+                {s.winner_structure === 'single' ? (
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">🏆</span>
+                    <div>
+                      <p className="text-white/60 text-[10px] font-bold uppercase tracking-widest">Winner</p>
+                      <p className="text-white font-extrabold text-lg">{champion.player_name}</p>
+                      <p className="text-white/50 text-xs font-medium">{champion.team_name}</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {top3.map((r, i) => (
+                      <div key={r.entry_id} className="flex items-center gap-3">
+                        <span className="text-lg">{i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉'}</span>
+                        <div className="flex-1">
+                          <p className="text-white font-extrabold text-sm">{r.player_name}</p>
+                          <p className="text-white/50 text-xs">{r.team_name}</p>
+                        </div>
+                        <span className="text-white/40 text-xs font-bold">{ordinal(i + 1)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-white/50 text-[10px] font-bold uppercase tracking-widest">
+                  {s.winner_structure === 'single' ? 'Winner takes all' : 'Prize pot'}
+                </p>
+                <p className="heading text-3xl text-white">
+                  {formatCurrency(s.entry_amount * playerCount, s.currency)}
+                </p>
+              </div>
+              <p className="text-white/40 text-xs font-medium">
+                {playerCount} &times; {formatCurrency(s.entry_amount, s.currency)}
+              </p>
+            </div>
+            {isResolved && (
+              <p className="text-white/30 text-[10px] mt-3">
+                The organiser distributes winnings directly. The platform holds no money.
+              </p>
+            )}
           </div>
-          <p className="text-white/40 text-xs font-medium">
-            {playerCount} &times; {formatCurrency(s.entry_amount, s.currency)}
-          </p>
-        </div>
-      )}
+        )
+      })()}
 
       {/* ── 2. Team card ─────────────────────────────────────── */}
       <div className={`rounded-3xl border-2 p-8 text-center ${

@@ -17,6 +17,7 @@ interface Standing {
   goals_for: number
   rank: number
   is_eliminated: boolean
+  is_champion: boolean
 }
 
 const STAGE_LABELS: Record<string, string> = {
@@ -117,7 +118,9 @@ export default function StandingsPage() {
               </div>
 
               <div className="flex-shrink-0">
-                {s.is_eliminated ? (
+                {s.is_champion ? (
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider px-2 py-1 rounded-full bg-yellow-100 text-yellow-700 border border-yellow-300">🏆</span>
+                ) : s.is_eliminated ? (
                   <span className="text-[10px] font-extrabold uppercase tracking-wider px-2 py-1 rounded-full bg-red-100 text-red-700 border border-red-200">Out</span>
                 ) : (
                   <span className="text-[10px] font-extrabold uppercase tracking-wider px-2 py-1 rounded-full bg-brand-green/20 text-[#1a7a00] border border-brand-green">In</span>
