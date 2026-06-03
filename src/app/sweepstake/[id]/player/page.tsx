@@ -135,45 +135,26 @@ export default function PlayerSweepstakePage() {
 
       setEntry(playerEntry as unknown as PlayerEntry)
 
-      // Get player count from peers API
-      const peersRes = await fetch(`/api/player/peers?sweepstake_id=${id}`)
-      if (peersRes.ok) {
-        const peers = await peersRes.json()
-        setPlayerCount(peers.length)
-      }
-
-      // Check if user is also the organiser
-      const { data: organiser } = await supabase
-        .from('organisers')
-        .select('id')
-        .eq('auth_id', user.id)
-        .maybeSingle()
-      if (organiser) {
-        // Check if this sweepstake belongs to this organiser
+      // Run all independent requests in parallel
+      // Run independent requests in parallel
+      const standingsP = fetch(`/api/sweepstakes/standings?sweepstake_id=${id}`).then(r => r.ok ? r.json() : [])
+      const nextMatchP = playerEntry?.team_id
+        ? fetch(`/api/player/next-match?team_id=${playerEntry.team_id}`).then(r => r.ok ? r.json() : null)
+        : Promise.resolve(null)
+      const organiserP = (async () => {
+        const { data: org } = await supabase.from('organisers').select('id').eq('auth_id', user.id).maybeSingle()
+        if (!org) return false
         const res = await fetch(`/api/player/dashboard`)
-        if (res.ok) {
-          const all = await res.json()
-          const match = all.find((s: Record<string, unknown>) => s.id === id && s.role === 'organiser')
-          if (match) setIsOrganiser(true)
-        }
-      }
+        if (!res.ok) return false
+        const all = await res.json()
+        return !!all.find((s: Record<string, unknown>) => s.id === id && s.role === 'organiser')
+      })()
 
-      // Load next match if a team is assigned
-      if (playerEntry?.team_id) {
-        const matchRes = await fetch(`/api/player/next-match?team_id=${playerEntry.team_id}`)
-        if (matchRes.ok) {
-          setNextMatch(await matchRes.json())
-        }
-      }
-
-      // Load standings
-      const standingsRes = await fetch(`/api/sweepstakes/standings?sweepstake_id=${id}`)
-      if (standingsRes.ok) {
-        const data = await standingsRes.json()
-        setStandings(data)
-        if (!playerCount && data.length > 0) setPlayerCount(data.length)
-      }
-
+      const [standingsData, nextMatchData, isOrg] = await Promise.all([standingsP, nextMatchP, organiserP])
+      setStandings(standingsData)
+      if (standingsData.length > 0) setPlayerCount(standingsData.length)
+      if (nextMatchData) setNextMatch(nextMatchData)
+      if (isOrg) setIsOrganiser(true)
       setLoading(false)
     }
     load()

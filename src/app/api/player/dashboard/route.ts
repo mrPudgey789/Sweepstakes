@@ -11,52 +11,36 @@ export async function GET() {
   }
 
   const admin = createAdminClient()
+
+  // Fetch organiser and player records in parallel
+  const [{ data: organiser }, { data: player }] = await Promise.all([
+    admin.from('organisers').select('id').eq('auth_id', user.id).maybeSingle(),
+    admin.from('players').select('id').eq('email', user.email!).maybeSingle(),
+  ])
+
+  // Fetch organised sweepstakes and player entries in parallel
+  const [organisedResult, entriesResult] = await Promise.all([
+    organiser
+      ? admin.from('sweepstakes').select('*').eq('organiser_id', organiser.id).order('created_at', { ascending: false })
+      : Promise.resolve({ data: null }),
+    player
+      ? admin.from('entries').select('sweepstakes(*)').eq('player_id', player.id)
+      : Promise.resolve({ data: null }),
+  ])
+
   const all: Record<string, unknown>[] = []
   const seenIds = new Set<string>()
 
-  // Sweepstakes user organises
-  const { data: organiser } = await admin
-    .from('organisers')
-    .select('id')
-    .eq('auth_id', user.id)
-    .maybeSingle()
-
-  if (organiser) {
-    const { data: organised } = await admin
-      .from('sweepstakes')
-      .select('*')
-      .eq('organiser_id', organiser.id)
-      .order('created_at', { ascending: false })
-
-    if (organised) {
-      for (const s of organised) {
-        seenIds.add(s.id)
-        all.push({ ...s, role: 'organiser' })
-      }
-    }
+  for (const s of organisedResult.data || []) {
+    seenIds.add(s.id)
+    all.push({ ...s, role: 'organiser' })
   }
 
-  // Sweepstakes user joined as player (match by email)
-  const { data: player } = await admin
-    .from('players')
-    .select('id')
-    .eq('email', user.email!)
-    .maybeSingle()
-
-  if (player) {
-    const { data: entries } = await admin
-      .from('entries')
-      .select('sweepstakes(*)')
-      .eq('player_id', player.id)
-
-    if (entries) {
-      for (const e of entries) {
-        const s = e.sweepstakes as unknown as Record<string, unknown> | null
-        if (s && !seenIds.has(s.id as string)) {
-          seenIds.add(s.id as string)
-          all.push({ ...s, role: 'player' })
-        }
-      }
+  for (const e of entriesResult.data || []) {
+    const s = e.sweepstakes as unknown as Record<string, unknown> | null
+    if (s && !seenIds.has(s.id as string)) {
+      seenIds.add(s.id as string)
+      all.push({ ...s, role: 'player' })
     }
   }
 

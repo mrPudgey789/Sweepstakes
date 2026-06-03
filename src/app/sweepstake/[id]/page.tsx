@@ -96,46 +96,42 @@ export default function SweepstakeManagePage() {
     if (!s) { router.push('/dashboard'); return }
     setSweepstake(s as SweepstakeDetail)
 
-    // Fetch entries via API (admin client bypasses RLS so we can see player names)
-    const entriesRes = await fetch(`/api/sweepstakes/${id}/entries`)
+    // Fetch entries and standings in parallel
+    const [entriesRes, standingsRes] = await Promise.all([
+      fetch(`/api/sweepstakes/${id}/entries`),
+      fetch(`/api/sweepstakes/standings?sweepstake_id=${id}`),
+    ])
+
+    if (standingsRes.ok) {
+      setStandings(await standingsRes.json())
+    }
+
     if (entriesRes.ok) {
       const result = await entriesRes.json()
       const entryList = (result.entries as Entry[]) || []
       setEntries(entryList)
       if (result.organiser_name) setOrganiserName(result.organiser_name)
 
-      // Find organiser's own entry by their email (reliable match)
+      // Find organiser's own entry by their email
       const userEmail = user.email?.toLowerCase()
       const mine = entryList.find(e => e.players?.email?.toLowerCase() === userEmail)
       if (mine) {
         setMyTeamEntry(mine)
         if (mine.team_id) {
-          const matchRes = await fetch(`/api/player/next-match?team_id=${mine.team_id}`)
-          if (matchRes.ok) setNextMatch(await matchRes.json())
-        } else if (s.mode === 'pick_your_own') {
-          // Load available teams for pick-your-own
-          const { data: tournament } = await supabase
-            .from('tournaments')
-            .select('id')
-            .eq('name', 'FIFA World Cup 2026')
-            .maybeSingle()
-          if (tournament) {
-            const { data: allTeams } = await supabase
-              .from('teams')
-              .select('id, name, code, group_letter')
-              .eq('tournament_id', tournament.id)
-              .order('group_letter')
-              .order('name')
-            const takenIds = new Set(entryList.filter(e => e.team_id).map(e => e.team_id))
-            setAvailableTeams((allTeams || []).filter(t => !takenIds.has(t.id)))
-          }
+          fetch(`/api/player/next-match?team_id=${mine.team_id}`)
+            .then(res => res.ok ? res.json() : null)
+            .then(data => { if (data) setNextMatch(data) })
+        } else if (s.mode === 'pick_your_own' && s.tournament_id) {
+          const { data: allTeams } = await supabase
+            .from('teams')
+            .select('id, name, code, group_letter')
+            .eq('tournament_id', s.tournament_id)
+            .order('group_letter')
+            .order('name')
+          const takenIds = new Set(entryList.filter(e => e.team_id).map(e => e.team_id))
+          setAvailableTeams((allTeams || []).filter(t => !takenIds.has(t.id)))
         }
       }
-    }
-    // Fetch standings for winner display
-    const standingsRes = await fetch(`/api/sweepstakes/standings?sweepstake_id=${id}`)
-    if (standingsRes.ok) {
-      setStandings(await standingsRes.json())
     }
 
     setLoading(false)

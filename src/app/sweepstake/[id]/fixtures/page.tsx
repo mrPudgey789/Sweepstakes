@@ -114,12 +114,6 @@ export default function FixturesPage() {
   useEffect(() => {
     async function init() {
       setLoading(true)
-      // Trigger a fixture fetch on mount in case the DB is empty
-      try {
-        await fetch('/api/cron/poll-results', { method: 'POST' })
-      } catch {
-        // best effort
-      }
       const data = await loadMatches()
       setMatches(data)
       setLoading(false)
