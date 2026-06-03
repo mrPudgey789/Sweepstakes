@@ -223,7 +223,7 @@ export default function SweepstakeManagePage() {
       {/* ── Header ─────────────────────────────────────────────────── */}
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1 min-w-0">
-          <h1 className="heading text-4xl sm:text-5xl text-brand-navy leading-none mb-3 truncate">
+          <h1 className="heading text-3xl sm:text-5xl text-brand-navy leading-tight mb-3">
             {sweepstake.name}
           </h1>
           {organiserName && (

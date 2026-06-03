@@ -230,7 +230,7 @@ export default function PlayerSweepstakePage() {
       </button>
 
       <div>
-        <h1 className="heading text-4xl md:text-5xl text-brand-navy">{s.name}</h1>
+        <h1 className="heading text-3xl sm:text-5xl text-brand-navy leading-tight">{s.name}</h1>
         {s.organiser_name && (
           <p className="text-sm text-brand-navy/40 font-medium mt-1">
             Organised by <span className="text-brand-navy font-semibold">{s.organiser_name}</span>
