@@ -36,8 +36,9 @@ export async function POST(request: Request, { params }: { params: any }) {
     return NextResponse.json({ error: 'Not the organiser' }, { status: 403 })
   }
 
-  // Also delete standings for this entry
-  await admin.from('standings').delete().eq('entry_id', entry_id)
+  if (sweep.status === 'drawn' || sweep.status === 'closed') {
+    return NextResponse.json({ error: 'Cannot remove players after draw' }, { status: 400 })
+  }
 
   // Verify entry belongs to this sweepstake
   const { data: entry } = await admin

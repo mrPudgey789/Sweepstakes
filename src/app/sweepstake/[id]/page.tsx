@@ -532,7 +532,7 @@ export default function SweepstakeManagePage() {
                         </span>
                       )
                     )}
-                    {!(userEmail && entry.players?.email?.toLowerCase() === userEmail) && (
+                    {sweepstake.status !== 'drawn' && sweepstake.status !== 'closed' && !(userEmail && entry.players?.email?.toLowerCase() === userEmail) && (
                       <button
                         onClick={async () => {
                           if (!confirm(`Remove ${entry.players?.display_name || 'this player'} from the sweepstake?`)) return
