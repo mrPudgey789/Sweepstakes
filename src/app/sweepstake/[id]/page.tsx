@@ -56,6 +56,12 @@ function CheckIcon() {
   )
 }
 
+function ordinal(n: number): string {
+  const s = ['th', 'st', 'nd', 'rd']
+  const v = n % 100
+  return n + (s[(v - 20) % 10] || s[v] || s[0])
+}
+
 export default function SweepstakeManagePage() {
   const { id } = useParams()
   const router = useRouter()
@@ -66,6 +72,8 @@ export default function SweepstakeManagePage() {
   const [copiedLink, setCopiedLink] = useState(false)
   const [copiedCode, setCopiedCode] = useState(false)
   const [organiserName, setOrganiserName] = useState<string>('')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [standings, setStandings] = useState<any[]>([])
   const [myTeamEntry, setMyTeamEntry] = useState<Entry | null>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [nextMatch, setNextMatch] = useState<any>(null)
@@ -124,6 +132,12 @@ export default function SweepstakeManagePage() {
         }
       }
     }
+    // Fetch standings for winner display
+    const standingsRes = await fetch(`/api/sweepstakes/standings?sweepstake_id=${id}`)
+    if (standingsRes.ok) {
+      setStandings(await standingsRes.json())
+    }
+
     setLoading(false)
   }
 
@@ -247,22 +261,62 @@ export default function SweepstakeManagePage() {
         </span>
       </div>
 
-      {/* ── Prize pot ─────────────────────────────────────────────── */}
-      {entries.length > 0 && (
-        <div className="bg-brand-blue rounded-2xl px-5 py-4 flex items-center justify-between">
-          <div>
-            <p className="text-white/50 text-[10px] font-bold uppercase tracking-widest">
-              {sweepstake.winner_structure === 'single' ? 'Winner takes all' : 'Prize pot'}
-            </p>
-            <p className="heading text-3xl text-white">
-              {formatCurrency(sweepstake.entry_amount * entries.length, sweepstake.currency)}
-            </p>
+      {/* ── Prize pot + winners ─────────────────────────────────── */}
+      {entries.length > 0 && (() => {
+        const champion = standings.find((r: Record<string, unknown>) => r.is_champion)
+        const top3 = standings.slice(0, 3)
+        const isResolved = champion !== undefined
+
+        return (
+          <div className="bg-brand-blue rounded-2xl px-5 py-4">
+            {isResolved && (
+              <div className="mb-4 pb-4 border-b border-white/20">
+                {sweepstake.winner_structure === 'single' ? (
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">🏆</span>
+                    <div>
+                      <p className="text-white/60 text-[10px] font-bold uppercase tracking-widest">Winner</p>
+                      <p className="text-white font-extrabold text-lg">{(champion as Record<string, unknown>).player_name as string}</p>
+                      <p className="text-white/50 text-xs font-medium">{(champion as Record<string, unknown>).team_name as string}</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {top3.map((r: Record<string, unknown>, i: number) => (
+                      <div key={r.entry_id as string} className="flex items-center gap-3">
+                        <span className="text-lg">{i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉'}</span>
+                        <div className="flex-1">
+                          <p className="text-white font-extrabold text-sm">{r.player_name as string}</p>
+                          <p className="text-white/50 text-xs">{r.team_name as string}</p>
+                        </div>
+                        <span className="text-white/40 text-xs font-bold">{ordinal(i + 1)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-white/50 text-[10px] font-bold uppercase tracking-widest">
+                  {sweepstake.winner_structure === 'single' ? 'Winner takes all' : 'Prize pot'}
+                </p>
+                <p className="heading text-3xl text-white">
+                  {formatCurrency(sweepstake.entry_amount * entries.length, sweepstake.currency)}
+                </p>
+              </div>
+              <p className="text-white/40 text-xs font-medium">
+                {entries.length} &times; {formatCurrency(sweepstake.entry_amount, sweepstake.currency)}
+              </p>
+            </div>
+            {isResolved && (
+              <p className="text-white/30 text-[10px] mt-3">
+                You distribute winnings directly to the winners. The platform holds no money.
+              </p>
+            )}
           </div>
-          <p className="text-white/40 text-xs font-medium">
-            {entries.length} &times; {formatCurrency(sweepstake.entry_amount, sweepstake.currency)}
-          </p>
-        </div>
-      )}
+        )
+      })()}
 
       {/* ── Pick your team (organiser in pick_your_own without a team) ── */}
       {myTeamEntry && !myTeamEntry.team_id && sweepstake.mode === 'pick_your_own' && availableTeams.length > 0 && (
