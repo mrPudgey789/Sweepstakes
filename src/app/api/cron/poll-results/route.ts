@@ -176,8 +176,15 @@ export async function GET(request: Request) {
             ? matchRow.away_team_id
             : matchRow.home_team_id
 
+          // Loser is always eliminated (except semi-final losers who play 3rd place)
           if (loserId) {
             const eliminated = await eliminateTeam(supabase, loserId, stage)
+            if (eliminated) eliminatedTeams.push(eliminated)
+          }
+
+          // Third-place match: the winner also gets eliminated (3rd place, not champion)
+          if (stage === 'third_place') {
+            const eliminated = await eliminateTeam(supabase, winnerTeamId, stage)
             if (eliminated) eliminatedTeams.push(eliminated)
           }
         }

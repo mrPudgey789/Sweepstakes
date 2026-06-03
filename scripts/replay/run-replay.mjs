@@ -130,31 +130,39 @@ async function feedResult(dbMatchId, match, teamByName) {
   return { winnerId, winnerName, homeScore, awayScore }
 }
 
-/** For knockout matches, mark the loser as eliminated */
+/** For knockout matches, mark eliminated teams */
 async function handleKnockoutElimination(dbMatchId, match, teamByName, stage) {
-  if (stage === 'group') return null
+  if (stage === 'group' || stage === 'semi') return []
 
   const winnerName = determineWinner(match)
-  if (!winnerName) return null
+  if (!winnerName) return []
 
   const loserName = winnerName === match.team1 ? match.team2 : match.team1
-  const loser = teamByName[loserName]
-  if (!loser) return null
+  const eliminated = []
 
-  // Semi-final losers are not eliminated yet (they play 3rd place)
-  // Actually in our system we should still track them, but let's mark them eliminated
-  // EXCEPT the semi losers who play the third-place match
-  if (stage === 'semi') {
-    // Don't eliminate yet, they play third place
-    return null
+  // Loser is always eliminated
+  const loser = teamByName[loserName]
+  if (loser) {
+    await supabase.from('teams').update({
+      status: 'eliminated',
+      eliminated_at: new Date().toISOString(),
+    }).eq('id', loser.id)
+    eliminated.push(loserName)
   }
 
-  await supabase.from('teams').update({
-    status: 'eliminated',
-    eliminated_at: new Date().toISOString(),
-  }).eq('id', loser.id)
+  // Third-place winner is also eliminated (3rd place, not champion)
+  if (stage === 'third_place') {
+    const winner = teamByName[winnerName]
+    if (winner) {
+      await supabase.from('teams').update({
+        status: 'eliminated',
+        eliminated_at: new Date().toISOString(),
+      }).eq('id', winner.id)
+      eliminated.push(winnerName)
+    }
+  }
 
-  return loserName
+  return eliminated
 }
 
 /** Send knockout notification for eliminated team's entries */
@@ -368,12 +376,12 @@ async function main() {
 
     // Handle knockout elimination
     if (stage !== 'group') {
-      const loserName = await handleKnockoutElimination(dbMatch.id, match, teamByName, stage)
-      if (loserName) {
-        eliminated.add(loserName)
-        console.log(`  -> ${loserName} ELIMINATED at ${stage}`)
+      const eliminatedNames = await handleKnockoutElimination(dbMatch.id, match, teamByName, stage)
+      for (const eName of eliminatedNames) {
+        eliminated.add(eName)
+        console.log(`  -> ${eName} ELIMINATED at ${stage}`)
         const notifications = await sendKnockoutNotifications(
-          loserName, teamByName[loserName].id, sweepstake_id, stage
+          eName, teamByName[eName].id, sweepstake_id, stage
         )
         if (notifications > 0) console.log(`  -> ${notifications} notification(s) sent`)
       }

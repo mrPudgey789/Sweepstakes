@@ -64,19 +64,25 @@ export async function POST(request: Request) {
         .eq('id', match_id)
         .single()
 
-      if (match && match.stage !== 'group') {
+      if (match && match.stage !== 'group' && match.stage !== 'semi') {
         const loserId = match.home_team_id === winner_team_id
           ? match.away_team_id
           : match.home_team_id
 
+        // Loser is eliminated
         if (loserId) {
           await supabase
             .from('teams')
-            .update({
-              status: 'eliminated',
-              eliminated_at: new Date().toISOString(),
-            })
+            .update({ status: 'eliminated', eliminated_at: new Date().toISOString() })
             .eq('id', loserId)
+        }
+
+        // Third-place winner is also eliminated (3rd, not champion)
+        if (match.stage === 'third_place') {
+          await supabase
+            .from('teams')
+            .update({ status: 'eliminated', eliminated_at: new Date().toISOString() })
+            .eq('id', winner_team_id)
         }
       }
     }
