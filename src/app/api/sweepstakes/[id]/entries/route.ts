@@ -36,7 +36,7 @@ export async function GET(
     // Fetch entries with player and team data (admin bypasses RLS)
     const { data: entries } = await supabase
       .from('entries')
-      .select('id, payment_state, created_at, team_id, players(email, display_name), teams(name, code)')
+      .select('id, payment_state, created_at, team_id, players(email, display_name), teams(name, code, status)')
       .eq('sweepstake_id', params.id)
       .order('created_at')
 

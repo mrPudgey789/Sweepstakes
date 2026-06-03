@@ -13,7 +13,7 @@ interface Entry {
   created_at: string
   team_id: string | null
   players: { email: string; display_name: string | null }
-  teams: { name: string; code: string } | null
+  teams: { name: string; code: string; status: string } | null
 }
 
 interface SweepstakeDetail {
