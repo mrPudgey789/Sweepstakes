@@ -108,6 +108,20 @@ export function JoinFlow({
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [entryId, setEntryId] = useState<string | null>(null)
+  const [authMode, setAuthMode] = useState<'signup' | 'login'>('signup')
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
+
+  // Check if user is already logged in
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) {
+        setIsLoggedIn(true)
+        setEmail(user.email || '')
+        setDisplayName(user.user_metadata?.display_name || '')
+      }
+    })
+  }, [])
 
   useEffect(() => {
     if (mode === 'pick_your_own' && step === 'team') {
@@ -154,7 +168,7 @@ export function JoinFlow({
         body: JSON.stringify({
           sweepstake_id: sweepstakeId,
           email,
-          password,
+          password: isLoggedIn ? undefined : password,
           display_name: displayName,
           team_id: mode === 'pick_your_own' ? selectedTeam : null,
         }),
@@ -217,83 +231,135 @@ export function JoinFlow({
               Step 1 of {mode === 'pick_your_own' ? 4 : 3}
             </p>
             <h2 className="text-brand-navy text-xl font-extrabold mb-1">Who are you?</h2>
-            <p className="text-brand-blue/70 text-sm">Enter your details to claim your spot.</p>
+            <p className="text-brand-blue/70 text-sm">
+              {isLoggedIn ? 'Confirm your details to claim your spot.' : 'Enter your details to claim your spot.'}
+            </p>
           </div>
 
-          <div className="space-y-4">
-            <div>
-              <label className="block text-brand-blue text-xs font-bold uppercase tracking-widest mb-2">
-                Your name <span className="text-brand-green">*</span>
-              </label>
-              <input
-                type="text"
-                required
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                placeholder="e.g. James"
-                className={inputClass}
-              />
-              <p className="text-brand-blue/50 text-xs mt-2">
-                This is how other players will see you.
-              </p>
+          {isLoggedIn ? (
+            /* Logged-in user: just show name field */
+            <div className="space-y-4">
+              <div className="bg-brand-green/10 border-2 border-brand-green/30 rounded-2xl px-4 py-3 flex items-center gap-3">
+                <div className="w-7 h-7 bg-brand-green rounded-full flex items-center justify-center flex-shrink-0">
+                  <svg className="w-3.5 h-3.5 text-brand-navy" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                </div>
+                <p className="text-sm font-bold text-brand-navy">Logged in as {email}</p>
+              </div>
+              <div>
+                <label className="block text-brand-blue text-xs font-bold uppercase tracking-widest mb-2">
+                  Display name <span className="text-brand-green">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  placeholder="e.g. James"
+                  className={inputClass}
+                />
+                <p className="text-brand-blue/50 text-xs mt-2">
+                  This is how other players will see you.
+                </p>
+              </div>
             </div>
+          ) : (
+            /* Not logged in: signup or login */
+            <div className="space-y-4">
+              <div className="flex border-2 border-gray-200 rounded-full overflow-hidden">
+                <button type="button" onClick={() => { setAuthMode('signup'); setError(null) }} className={`flex-1 py-2.5 text-xs font-bold uppercase tracking-wider transition-all ${authMode === 'signup' ? 'bg-brand-blue text-white' : 'bg-white text-gray-500'}`}>New here</button>
+                <button type="button" onClick={() => { setAuthMode('login'); setError(null) }} className={`flex-1 py-2.5 text-xs font-bold uppercase tracking-wider transition-all ${authMode === 'login' ? 'bg-brand-blue text-white' : 'bg-white text-gray-500'}`}>I have an account</button>
+              </div>
 
-            <div>
-              <label className="block text-brand-blue text-xs font-bold uppercase tracking-widest mb-2">
-                Email address <span className="text-brand-green">*</span>
-              </label>
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
-                className={inputClass}
-              />
-              <p className="text-brand-blue/50 text-xs mt-2">
-                Used to log in and receive your knockout notification.
-              </p>
-            </div>
+              <div>
+                <label className="block text-brand-blue text-xs font-bold uppercase tracking-widest mb-2">
+                  Your name <span className="text-brand-green">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  placeholder="e.g. James"
+                  className={inputClass}
+                />
+                <p className="text-brand-blue/50 text-xs mt-2">
+                  This is how other players will see you.
+                </p>
+              </div>
 
-            <div>
-              <label className="block text-brand-blue text-xs font-bold uppercase tracking-widest mb-2">
-                Create a password <span className="text-brand-green">*</span>
-              </label>
-              <input
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Min 6 characters"
-                className={inputClass}
-              />
-              {password.length > 0 && password.length < 6 && (
-                <p className="text-red-500 text-xs mt-1.5 font-medium">Password must be at least 6 characters.</p>
+              <div>
+                <label className="block text-brand-blue text-xs font-bold uppercase tracking-widest mb-2">
+                  Email address <span className="text-brand-green">*</span>
+                </label>
+                <input
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  className={inputClass}
+                />
+              </div>
+
+              <div>
+                <label className="block text-brand-blue text-xs font-bold uppercase tracking-widest mb-2">
+                  {authMode === 'signup' ? 'Create a password' : 'Password'} <span className="text-brand-green">*</span>
+                </label>
+                <input
+                  type="password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder={authMode === 'signup' ? 'Min 6 characters' : 'Your password'}
+                  className={inputClass}
+                />
+                {authMode === 'signup' && password.length > 0 && password.length < 6 && (
+                  <p className="text-red-500 text-xs mt-1.5 font-medium">Password must be at least 6 characters.</p>
+                )}
+              </div>
+
+              {authMode === 'login' && (
+                <a href="/auth/forgot-password" className="text-sm text-brand-blue font-semibold hover:underline block text-right">
+                  Forgot password?
+                </a>
               )}
-              <p className="text-brand-blue/50 text-xs mt-1.5">
-                So you can log in and track your team.
-              </p>
             </div>
-          </div>
+          )}
 
           <button
-            onClick={() => {
-              const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-              if (!emailRegex.test(email)) {
-                setError('Please enter a valid email address.')
-                return
-              }
-              if (password.length < 6) {
-                setError('Password must be at least 6 characters.')
-                return
-              }
+            onClick={async () => {
               setError(null)
+
+              if (isLoggedIn) {
+                if (!displayName.trim()) { setError('Please enter your name.'); return }
+                setStep('terms')
+                return
+              }
+
+              const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+              if (!emailRegex.test(email)) { setError('Please enter a valid email address.'); return }
+              if (password.length < 6) { setError('Password must be at least 6 characters.'); return }
+              if (!displayName.trim()) { setError('Please enter your name.'); return }
+
+              if (authMode === 'login') {
+                setLoading(true)
+                const supabase = createClient()
+                const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
+                if (signInError) {
+                  setError(signInError.message)
+                  setLoading(false)
+                  return
+                }
+                setIsLoggedIn(true)
+                setLoading(false)
+              }
+
               setStep('terms')
             }}
-            disabled={!email || !displayName.trim() || password.length < 6}
+            disabled={!displayName.trim() || (!isLoggedIn && (!email || password.length < 6)) || loading}
             className="btn-primary w-full disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            Continue
+            {loading ? 'Logging in...' : 'Continue'}
           </button>
         </div>
       )}
@@ -549,12 +615,9 @@ export function JoinFlow({
           </div>
 
           <div className="bg-gray-50 border-2 border-gray-200 rounded-2xl px-4 py-3">
-            <p className="text-brand-blue/60 text-xs font-medium">
-              Check your email to verify your account
-            </p>
-            <p className="text-brand-navy font-bold text-sm mt-0.5">{email}</p>
+            <p className="text-brand-navy font-bold text-sm">{email}</p>
             <p className="text-brand-navy/40 text-xs mt-1">
-              Click the link in the email to confirm your account and log in.
+              You can log in with this email to track your team.
             </p>
           </div>
 

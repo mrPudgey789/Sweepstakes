@@ -514,19 +514,43 @@ export default function SweepstakeManagePage() {
                     </div>
                   </div>
                   {sweepstake.status !== 'drawn' && (
-                    entry.payment_state === 'confirmed' ? (
-                      <span className="inline-flex items-center gap-1 text-xs font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-full bg-brand-green/20 text-[#1a7a00] border border-brand-green flex-shrink-0">
-                        <CheckIcon /> Paid
-                      </span>
-                    ) : entry.payment_state === 'marked_paid' ? (
-                      <span className="text-xs font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-full bg-yellow-100 text-yellow-700 border border-yellow-300 flex-shrink-0">
-                        Pending
-                      </span>
-                    ) : (
-                      <span className="text-xs font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-full bg-gray-100 text-gray-500 border border-gray-200 flex-shrink-0">
-                        Unpaid
-                      </span>
-                    )
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      {entry.payment_state === 'confirmed' ? (
+                        <span className="inline-flex items-center gap-1 text-xs font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-full bg-brand-green/20 text-[#1a7a00] border border-brand-green">
+                          <CheckIcon /> Paid
+                        </span>
+                      ) : entry.payment_state === 'marked_paid' ? (
+                        <span className="text-xs font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-full bg-yellow-100 text-yellow-700 border border-yellow-300">
+                          Pending
+                        </span>
+                      ) : (
+                        <>
+                          <span className="text-xs font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-full bg-gray-100 text-gray-500 border border-gray-200">
+                            Unpaid
+                          </span>
+                          {!(userEmail && entry.players?.email?.toLowerCase() === userEmail) && (
+                            <button
+                              onClick={async () => {
+                                if (!confirm(`Remove ${entry.players?.display_name || 'this player'} from the sweepstake?`)) return
+                                await fetch(`/api/sweepstakes/${id}/remove-player`, {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ entry_id: entry.id }),
+                                })
+                                await load()
+                              }}
+                              className="text-xs font-bold text-red-500 hover:text-red-700 transition-colors"
+                              title="Remove player"
+                            >
+                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <line x1="18" y1="6" x2="6" y2="18" />
+                                <line x1="6" y1="6" x2="18" y2="18" />
+                              </svg>
+                            </button>
+                          )}
+                        </>
+                      )}
+                    </div>
                   )}
                 </div>
                 {entry.payment_state === 'marked_paid' && sweepstake.status !== 'drawn' && (

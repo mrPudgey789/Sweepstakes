@@ -27,7 +27,7 @@ export default function RootLayout({
 
   return (
     <html lang="en-GB">
-      <body className={`${inter.variable} ${anton.variable} font-sans min-h-screen bg-white text-brand-navy`}>
+      <body className={`${inter.variable} ${anton.variable} font-sans min-h-screen bg-[#F8F9FB] text-brand-navy`}>
         {!preloaderDone && checked && (
           <Preloader onComplete={() => { sessionStorage.setItem('preloader_seen', '1'); setPreloaderDone(true) }} />
         )}
