@@ -40,7 +40,12 @@ export default function SignUpPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, auth_id: data.user.id, display_name: displayName || null }),
       })
-      router.push('/dashboard')
+      // If email confirmation is required, redirect to verify page
+      if (!data.session) {
+        router.push(`/auth/verify?email=${encodeURIComponent(email)}`)
+      } else {
+        router.push('/dashboard')
+      }
     }
 
     setLoading(false)

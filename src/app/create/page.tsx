@@ -99,6 +99,11 @@ export default function CreateSweepstakePage() {
         const result = await res.json()
         if (!res.ok) { setError(result.error || 'Profile setup failed. Try logging in.'); setAuthLoading(false); return }
         setOrganiserId(result.id)
+        // If email confirmation required, redirect to verify
+        if (!data.session) {
+          router.push(`/auth/verify?email=${encodeURIComponent(authEmail)}`)
+          return
+        }
         setIsLoggedIn(true)
       }
     } else {

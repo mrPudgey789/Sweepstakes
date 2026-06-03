@@ -550,9 +550,12 @@ export function JoinFlow({
 
           <div className="bg-gray-50 border-2 border-gray-200 rounded-2xl px-4 py-3">
             <p className="text-brand-blue/60 text-xs font-medium">
-              Confirmation email sent to
+              Check your email to verify your account
             </p>
             <p className="text-brand-navy font-bold text-sm mt-0.5">{email}</p>
+            <p className="text-brand-navy/40 text-xs mt-1">
+              Click the link in the email to confirm your account and log in.
+            </p>
           </div>
 
           <a

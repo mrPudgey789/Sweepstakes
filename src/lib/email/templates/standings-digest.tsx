@@ -7,6 +7,7 @@ import {
   Text,
   Button,
   Hr,
+  Img,
 } from '@react-email/components'
 
 export interface StandingEntry {
@@ -40,8 +41,19 @@ export default function StandingsDigest({
       <Body style={body}>
         <Container style={container}>
           {/* Header */}
-          <Section style={header}>
-            <Text style={brandText}>SWEEP OR WEEP</Text>
+          <Section style={{
+            backgroundColor: '#1A56DB',
+            padding: '24px 0',
+            textAlign: 'center' as const,
+            borderRadius: '8px 8px 0 0',
+          }}>
+            <Img
+              src="https://sweeporweep.com/Sweep%20or%20weep%20white.svg"
+              alt="Sweep or Weep"
+              width="200"
+              height="auto"
+              style={{ margin: '0 auto' }}
+            />
           </Section>
 
           {/* Main content */}
@@ -126,9 +138,8 @@ export default function StandingsDigest({
               <strong>Sweep or Weep</strong> - World Cup 2026 Sweepstakes
             </Text>
             <Text style={disclaimer}>
-              Sweep or Weep never holds, receives, or distributes any entry
-              money. All payments are made directly between players and the
-              organiser.
+              The platform provides software only. Entry money is paid directly
+              between players and the organiser.
             </Text>
             <Text style={unsubscribeText}>
               You are receiving this because you opted in to standings updates.{' '}
@@ -145,7 +156,7 @@ export default function StandingsDigest({
 
 // Styles
 const body: React.CSSProperties = {
-  backgroundColor: '#f4f4f5',
+  backgroundColor: '#f0f5ff',
   fontFamily:
     '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
   margin: 0,
@@ -158,20 +169,7 @@ const container: React.CSSProperties = {
   maxWidth: '600px',
   margin: '0 auto',
   overflow: 'hidden',
-}
-
-const header: React.CSSProperties = {
-  backgroundColor: '#0A1628',
-  padding: '24px 32px',
-  textAlign: 'center',
-}
-
-const brandText: React.CSSProperties = {
-  color: '#1A56DB',
-  fontSize: '22px',
-  fontWeight: '800',
-  letterSpacing: '3px',
-  margin: '0',
+  boxShadow: '0 4px 24px rgba(26, 86, 219, 0.08)',
 }
 
 const content: React.CSSProperties = {
@@ -296,15 +294,15 @@ const ellipsisCell: React.CSSProperties = {
 }
 
 const button: React.CSSProperties = {
-  backgroundColor: '#1A56DB',
-  borderRadius: '6px',
-  color: '#ffffff',
-  display: 'inline-block',
-  fontSize: '15px',
-  fontWeight: '600',
-  margin: '24px 0 0',
-  padding: '12px 28px',
+  backgroundColor: '#65FF47',
+  color: '#0A1628',
+  fontWeight: 'bold',
+  padding: '14px 28px',
+  borderRadius: '9999px',
   textDecoration: 'none',
+  display: 'inline-block',
+  fontSize: '14px',
+  textAlign: 'center' as const,
 }
 
 const divider: React.CSSProperties = {
@@ -313,8 +311,10 @@ const divider: React.CSSProperties = {
 }
 
 const footer: React.CSSProperties = {
-  backgroundColor: '#f8fafc',
-  padding: '24px 32px',
+  backgroundColor: '#f0f5ff',
+  padding: '20px 24px',
+  borderRadius: '0 0 8px 8px',
+  textAlign: 'center' as const,
 }
 
 const footerText: React.CSSProperties = {
