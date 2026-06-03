@@ -67,7 +67,8 @@ export default function SweepstakeManagePage() {
   const [copiedCode, setCopiedCode] = useState(false)
   const [organiserName, setOrganiserName] = useState<string>('')
   const [myTeamEntry, setMyTeamEntry] = useState<Entry | null>(null)
-  const [nextMatch, setNextMatch] = useState<Record<string, unknown> | null>(null)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [nextMatch, setNextMatch] = useState<any>(null)
   const [userEmail, setUserEmail] = useState<string>('')
 
   async function load() {

@@ -112,8 +112,8 @@ export async function computeGroupTables(
 
   // Sort each group and assign positions
   const result = new Map<string, GroupRow[]>()
-  for (const [group, teamMap] of tables) {
-    const sorted = [...teamMap.values()].sort((a, b) => {
+  tables.forEach((teamMap, group) => {
+    const sorted = Array.from(teamMap.values()).sort((a, b) => {
       if (b.points !== a.points) return b.points - a.points
       if (b.goal_difference !== a.goal_difference) return b.goal_difference - a.goal_difference
       if (b.goals_for !== a.goals_for) return b.goals_for - a.goals_for
@@ -121,7 +121,7 @@ export async function computeGroupTables(
     })
     sorted.forEach((row, i) => { row.position = i + 1 })
     result.set(group, sorted)
-  }
+  })
 
   return result
 }
@@ -207,8 +207,8 @@ export async function computeSweepstakeStandings(
 
   // Build standings
   const standings: SweepstakeStanding[] = entries.map(e => {
-    const team = e.teams as { id: string; name: string; code: string; status: string; group_letter: string } | null
-    const player = e.players as { display_name: string | null } | null
+    const team = e.teams as unknown as { id: string; name: string; code: string; status: string; group_letter: string } | null
+    const player = e.players as unknown as { display_name: string | null } | null
 
     let groupPoints = 0
     let goalDifference = 0
