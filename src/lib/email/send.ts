@@ -1,11 +1,11 @@
 import { Resend } from 'resend'
+import { render } from '@react-email/render'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createElement } from 'react'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
 const FROM_ADDRESS = process.env.EMAIL_FROM || 'Sweep or Weep <notifications@sweeporweep.com>'
-const IS_DEV = process.env.NODE_ENV === 'development'
 const LOG_ONLY = process.env.MAIL_TRANSPORT === 'log'
 
 interface SendEmailOptions {
@@ -57,7 +57,7 @@ export async function sendEmail(options: SendEmailOptions): Promise<{ success: b
   }
 
   // Dev mode: log only
-  if (IS_DEV || LOG_ONLY) {
+  if (LOG_ONLY) {
     console.log(`[email] To: ${to} | Subject: ${subject}`)
     console.log(`[email] Template: ${template.name || 'unknown'} | Props:`, JSON.stringify(props).slice(0, 200))
 
@@ -74,11 +74,12 @@ export async function sendEmail(options: SendEmailOptions): Promise<{ success: b
 
   // Production: send via Resend
   try {
+    const html = await render(createElement(template, props))
     const { data, error } = await resend.emails.send({
       from: FROM_ADDRESS,
       to,
       subject,
-      react: createElement(template, props),
+      html,
     })
 
     if (error) {
