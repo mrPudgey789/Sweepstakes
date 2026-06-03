@@ -111,14 +111,19 @@ export function JoinFlow({
   const [authMode, setAuthMode] = useState<'signup' | 'login'>('signup')
   const [isLoggedIn, setIsLoggedIn] = useState(false)
 
-  // Check if user is already logged in
+  // Check if user is already logged in — skip to T&Cs
   useEffect(() => {
     const supabase = createClient()
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (user) {
         setIsLoggedIn(true)
         setEmail(user.email || '')
-        setDisplayName(user.user_metadata?.display_name || '')
+        const name = user.user_metadata?.display_name || user.user_metadata?.name || ''
+        setDisplayName(name)
+        // Skip step 1 entirely if we have a display name
+        if (name) {
+          setStep('terms')
+        }
       }
     })
   }, [])
