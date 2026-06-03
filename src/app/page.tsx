@@ -27,7 +27,7 @@ export default function HomePage() {
         }}
       >
         {/* World Cup trophy */}
-        <img src="/world-cup-logo.svg" alt="FIFA World Cup 2026" className="w-14 sm:w-16 h-auto mb-4" />
+        <img src="/world-cup-logo.svg" alt="FIFA World Cup 2026" className="w-10 sm:w-12 h-auto mb-4" />
 
         {/* Label */}
         <span className="heading inline-block mb-6 text-white text-2xl sm:text-3xl">
@@ -44,7 +44,7 @@ export default function HomePage() {
         </div>
 
         {/* Tagline */}
-        <p className="text-white/80 text-lg sm:text-xl md:text-2xl font-medium max-w-xl mb-10">
+        <p className="text-white/60 text-base sm:text-lg font-normal max-w-xl mb-10">
           The easiest way to run a World Cup sweepstake
         </p>
 
