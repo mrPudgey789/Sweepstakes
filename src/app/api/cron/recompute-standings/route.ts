@@ -1,14 +1,13 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { materialiseStandings } from '@/lib/standings'
+import { verifyCronAuth } from '@/lib/cron-auth'
 
 // Recompute standings for all open/drawn sweepstakes.
 // Call after poll-results or after a manual override.
 
 export async function GET(request: Request) {
-  const authHeader = request.headers.get('authorization')
-  const cronSecret = process.env.CRON_SECRET || process.env.STRIPE_WEBHOOK_SECRET
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+  if (!verifyCronAuth(request)) {
     return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
   }
 
