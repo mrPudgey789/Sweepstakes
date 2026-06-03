@@ -70,6 +70,8 @@ export default function SweepstakeManagePage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [nextMatch, setNextMatch] = useState<any>(null)
   const [userEmail, setUserEmail] = useState<string>('')
+  const [availableTeams, setAvailableTeams] = useState<{ id: string; name: string; code: string; group_letter: string }[]>([])
+  const [pickingTeam, setPickingTeam] = useState(false)
 
   async function load() {
     const supabase = createClient()
@@ -102,6 +104,23 @@ export default function SweepstakeManagePage() {
         if (mine.team_id) {
           const matchRes = await fetch(`/api/player/next-match?team_id=${mine.team_id}`)
           if (matchRes.ok) setNextMatch(await matchRes.json())
+        } else if (s.mode === 'pick_your_own') {
+          // Load available teams for pick-your-own
+          const { data: tournament } = await supabase
+            .from('tournaments')
+            .select('id')
+            .eq('name', 'FIFA World Cup 2026')
+            .maybeSingle()
+          if (tournament) {
+            const { data: allTeams } = await supabase
+              .from('teams')
+              .select('id, name, code, group_letter')
+              .eq('tournament_id', tournament.id)
+              .order('group_letter')
+              .order('name')
+            const takenIds = new Set(entryList.filter(e => e.team_id).map(e => e.team_id))
+            setAvailableTeams((allTeams || []).filter(t => !takenIds.has(t.id)))
+          }
         }
       }
     }
@@ -245,8 +264,39 @@ export default function SweepstakeManagePage() {
         </div>
       )}
 
-      {/* ── Organiser's team + next match (after draw) ────────────── */}
-      {sweepstake.status === 'drawn' && myTeamEntry?.teams && (
+      {/* ── Pick your team (organiser in pick_your_own without a team) ── */}
+      {myTeamEntry && !myTeamEntry.team_id && sweepstake.mode === 'pick_your_own' && availableTeams.length > 0 && (
+        <div className="bg-white border-2 border-brand-blue rounded-2xl p-5">
+          <p className="text-brand-blue text-xs font-bold uppercase tracking-widest mb-1">You are player 1</p>
+          <p className="text-lg font-extrabold text-brand-navy mb-4">Pick your team</p>
+          <div className="grid grid-cols-2 gap-2 max-h-72 overflow-y-auto mb-4">
+            {availableTeams.map(team => (
+              <button
+                key={team.id}
+                disabled={pickingTeam}
+                onClick={async () => {
+                  setPickingTeam(true)
+                  const supabase = (await import('@/lib/supabase/client')).createClient()
+                  await supabase.from('entries').update({ team_id: team.id }).eq('id', myTeamEntry.id)
+                  await load()
+                  setPickingTeam(false)
+                }}
+                className="text-left border-2 border-gray-200 rounded-2xl px-3 py-3 hover:border-brand-blue transition-all disabled:opacity-50"
+              >
+                <div className="flex items-center gap-2">
+                  <TeamFlag code={team.code} size="sm" />
+                  <span className="text-sm font-bold text-brand-navy">{team.name}</span>
+                </div>
+                <span className="text-xs text-brand-navy/40 mt-0.5 block">Group {team.group_letter}</span>
+              </button>
+            ))}
+          </div>
+          {pickingTeam && <p className="text-sm text-brand-blue font-bold text-center">Picking...</p>}
+        </div>
+      )}
+
+      {/* ── Organiser's team + next match ────────────────────────── */}
+      {myTeamEntry?.teams && (
         <div className="bg-brand-blue rounded-2xl p-5 text-white">
           <p className="text-white/50 text-xs font-bold uppercase tracking-widest mb-2 text-center">Your team</p>
           <div className="flex items-center justify-center gap-3 mb-4">
