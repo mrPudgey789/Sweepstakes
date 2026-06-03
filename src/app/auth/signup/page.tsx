@@ -20,11 +20,13 @@ export default function SignUpPage() {
 
     const supabase = createClient()
 
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin
     const { data, error: signUpError } = await supabase.auth.signUp({
       email,
       password,
       options: {
         data: { display_name: displayName, role: 'organiser' },
+        emailRedirectTo: `${appUrl}/auth/callback?next=/dashboard`,
       },
     })
 

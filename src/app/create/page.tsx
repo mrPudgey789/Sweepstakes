@@ -36,6 +36,27 @@ export default function CreateSweepstakePage() {
   const [authLoading, setAuthLoading] = useState(false)
 
   useEffect(() => {
+    // Restore wizard state if returning from email verification
+    const saved = sessionStorage.getItem('sweepstake_wizard')
+    if (saved) {
+      try {
+        const state = JSON.parse(saved)
+        if (state.name) setName(state.name)
+        if (state.organiserName) setOrganiserName(state.organiserName)
+        if (state.mode) setMode(state.mode)
+        if (state.entryAmount) setEntryAmount(state.entryAmount)
+        if (state.customAmount) setCustomAmount(state.customAmount)
+        if (state.winnerStructure) setWinnerStructure(state.winnerStructure)
+        if (state.paymentMethod) setPaymentMethod(state.paymentMethod)
+        if (state.paypalInput) setPaypalInput(state.paypalInput)
+        if (state.band) setBand(state.band)
+        if (state.organiserId) setOrganiserId(state.organiserId)
+        if (state.organiserPlays !== undefined) setOrganiserPlays(state.organiserPlays)
+        if (state.step) setStep(state.step)
+        sessionStorage.removeItem('sweepstake_wizard')
+      } catch { /* ignore parse errors */ }
+    }
+
     const supabase = createClient()
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (user) {
@@ -85,9 +106,13 @@ export default function CreateSweepstakePage() {
     const supabase = createClient()
 
     if (authMode === 'signup') {
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin
       const { data, error: signUpError } = await supabase.auth.signUp({
         email: authEmail, password: authPassword,
-        options: { data: { role: 'organiser' } },
+        options: {
+          data: { role: 'organiser' },
+          emailRedirectTo: `${appUrl}/auth/callback?next=/create`,
+        },
       })
       if (signUpError) { setError(signUpError.message); setAuthLoading(false); return }
       if (data.user) {
@@ -99,9 +124,14 @@ export default function CreateSweepstakePage() {
         const result = await res.json()
         if (!res.ok) { setError(result.error || 'Profile setup failed. Try logging in.'); setAuthLoading(false); return }
         setOrganiserId(result.id)
-        // If email confirmation required, redirect to verify
+        // If email confirmation required, save wizard state and redirect to verify
         if (!data.session) {
-          router.push(`/auth/verify?email=${encodeURIComponent(authEmail)}`)
+          sessionStorage.setItem('sweepstake_wizard', JSON.stringify({
+            name, organiserName, mode, entryAmount, customAmount, winnerStructure,
+            paymentMethod, paypalInput, band, organiserId: result.id, organiserPlays,
+            step: 7,
+          }))
+          router.push(`/auth/verify?email=${encodeURIComponent(authEmail)}&next=/create`)
           return
         }
         setIsLoggedIn(true)
