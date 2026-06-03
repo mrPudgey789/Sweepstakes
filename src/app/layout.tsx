@@ -5,6 +5,7 @@ import './globals.css'
 import { NavBar } from '@/components/nav-bar'
 import Preloader from '@/components/preloader'
 import { useState, useEffect } from 'react'
+import { Analytics } from '@vercel/analytics/react'
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
 const anton = Anton({ weight: '400', subsets: ['latin'], variable: '--font-anton' })
@@ -43,6 +44,7 @@ export default function RootLayout({
             {children}
           </main>
         </div>
+        <Analytics />
       </body>
     </html>
   )
