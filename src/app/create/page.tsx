@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { PRICING_BANDS, type PricingBand } from '@/lib/pricing'
 import { formatCurrency, normalisePaypalHandle } from '@/lib/utils'
 
@@ -486,6 +487,13 @@ export default function CreateSweepstakePage() {
                 <div>
                   <label className="block text-sm font-bold mb-2 text-brand-navy">{authMode === 'signup' ? 'Create a password' : 'Password'}</label>
                   <input type="password" required minLength={6} value={authPassword} onChange={(e) => setAuthPassword(e.target.value)} className="w-full border-2 border-gray-200 rounded-2xl px-4 py-3.5 text-base focus:border-brand-blue focus:ring-0 focus:outline-none transition-colors" />
+                  {authMode === 'login' && (
+                    <div className="mt-2 text-right">
+                      <Link href="/auth/forgot-password?next=/create" className="text-sm text-brand-blue font-semibold hover:underline">
+                        Forgot password?
+                      </Link>
+                    </div>
+                  )}
                   {authMode === 'signup' && authPassword.length > 0 && (() => {
                     const hasLength = authPassword.length >= 8
                     const hasUpper = /[A-Z]/.test(authPassword)
