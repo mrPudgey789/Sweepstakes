@@ -40,7 +40,7 @@ export default function RootLayout({
           }}
         >
           <NavBar />
-          <main>
+          <main className="pt-[57px]">
             {children}
           </main>
         </div>
