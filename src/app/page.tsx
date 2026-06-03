@@ -26,11 +26,13 @@ export default function HomePage() {
           `,
         }}
       >
-        {/* World Cup label + logo */}
-        <div className="flex items-center gap-2 mb-8">
-          <img src="/world-cup-logo.svg" alt="FIFA World Cup 2026" className="w-6 sm:w-7 h-auto" />
-          <span className="text-white/70 text-xs sm:text-sm font-bold uppercase tracking-widest">World Cup 2026</span>
-        </div>
+        {/* World Cup trophy */}
+        <img src="/world-cup-logo.svg" alt="FIFA World Cup 2026" className="w-14 sm:w-16 h-auto mb-4" />
+
+        {/* Label */}
+        <span className="heading inline-block mb-6 text-white text-2xl sm:text-3xl">
+          World Cup 2026
+        </span>
 
         {/* Logo */}
         <div className="mb-6 w-full max-w-[260px] sm:max-w-xs md:max-w-sm">
