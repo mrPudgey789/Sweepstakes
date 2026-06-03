@@ -93,7 +93,7 @@ export default function FixturesPage() {
       status: m.status as string,
       home_team: Array.isArray(m.home_team) ? m.home_team[0] : m.home_team,
       away_team: Array.isArray(m.away_team) ? m.away_team[0] : m.away_team,
-      result: Array.isArray(m.result) && m.result.length > 0 ? m.result[0] : null,
+      result: Array.isArray(m.result) ? (m.result.length > 0 ? m.result[0] : null) : (m.result || null),
     })) as Match[]
 
     return processed
