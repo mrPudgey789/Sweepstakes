@@ -9,7 +9,8 @@ import { materialiseAllStandings } from '@/lib/standings'
 // Polls football-data.org for 2026 World Cup results, updates matches,
 // detects eliminations, enqueues knockout notifications, recomputes standings.
 
-export const maxDuration = 60 // seconds
+export const dynamic = 'force-dynamic'
+export const maxDuration = 60
 
 export async function GET(request: Request) {
   if (!verifyCronAuth(request)) {

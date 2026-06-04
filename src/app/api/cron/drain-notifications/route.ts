@@ -3,7 +3,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { sendNotification } from '@/lib/email'
 import { verifyCronAuth } from '@/lib/cron-auth'
 
-export const maxDuration = 60 // seconds
+export const dynamic = 'force-dynamic'
+export const maxDuration = 60
 
 // Drains the notification queue: picks up queued notifications and sends them
 // in controlled batches, respecting Resend's rate limits.

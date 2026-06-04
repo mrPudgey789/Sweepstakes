@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { fetchMatches, mapStage, mapStatus } from '@/lib/football-data'
 
+export const dynamic = 'force-dynamic'
+
 // Seed/update fixtures from football-data.org
 // Call once to populate, then the poll-results cron keeps them updated
 
