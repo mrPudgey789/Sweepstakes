@@ -639,6 +639,9 @@ export default function CreateSweepstakePage() {
                     {isPopular && (
                       <span className={`absolute -top-2.5 left-3 text-[10px] px-2.5 py-0.5 rounded-full font-bold ${isSelected ? 'bg-brand-green text-brand-navy' : 'bg-brand-blue text-white'}`}>Popular</span>
                     )}
+                    {key === '33_48' && (
+                      <span className={`absolute -top-2.5 left-3 text-[10px] px-2.5 py-0.5 rounded-full font-bold ${isSelected ? 'bg-brand-green text-brand-navy' : 'bg-brand-navy text-white'}`}>Full tournament</span>
+                    )}
                     <span className="heading text-2xl text-brand-navy mb-1">
                       {b.amount === 0 ? '£0' : `£${b.display.replace('.00', '')}`}
                     </span>
