@@ -46,7 +46,7 @@ export async function GET() {
   // Recent sweepstakes with player count and organiser
   const { data: recentSweeps } = await admin
     .from('sweepstakes')
-    .select('id, name, status, created_at, organiser_id, organisers(email)')
+    .select('id, name, status, created_at, max_players, organiser_id, organisers(email), payments(status, amount)')
     .order('created_at', { ascending: false })
     .limit(20)
 
@@ -54,12 +54,16 @@ export async function GET() {
   for (const s of recentSweeps || []) {
     const { count } = await admin.from('entries').select('*', { count: 'exact', head: true }).eq('sweepstake_id', s.id)
     const org = (s as Record<string, unknown>).organisers as { email: string } | null
+    const payments = (s as Record<string, unknown>).payments as { status: string; amount: number }[] | null
+    const paid = payments && payments.length > 0 ? payments[0] : null
     recentSweepstakes.push({
       id: s.id,
       name: s.name,
       status: s.status,
       created_at: s.created_at,
       player_count: count || 0,
+      max_players: (s as Record<string, unknown>).max_players as number | null,
+      paid_amount: paid?.status === 'succeeded' ? paid.amount : 0,
       organiser_email: org?.email || 'unknown',
     })
   }

@@ -12,7 +12,7 @@ interface Stats {
   totalEntries: number
   totalOrganisers: number
   sweepstakesByStatus: Record<string, number>
-  recentSweepstakes: { id: string; name: string; status: string; created_at: string; player_count: number; organiser_email: string }[]
+  recentSweepstakes: { id: string; name: string; status: string; created_at: string; player_count: number; max_players: number | null; paid_amount: number; organiser_email: string }[]
   recentPlayers: { id: string; email: string; display_name: string | null; created_at: string }[]
   notifications: { queued: number; sent: number; failed: number }
 }
@@ -110,23 +110,33 @@ export default function AdminPage() {
           <h2 className="heading text-xl text-brand-navy">Recent sweepstakes</h2>
         </div>
         <div className="divide-y divide-gray-100">
-          {stats.recentSweepstakes.map(s => (
-            <div key={s.id} className="px-5 py-3 flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-sm font-bold text-brand-navy truncate">{s.name}</p>
-                <p className="text-xs text-brand-navy/40">{s.organiser_email} · {new Date(s.created_at).toLocaleDateString('en-GB')}</p>
+          {stats.recentSweepstakes.map(s => {
+            const tier = !s.max_players || s.max_players <= 5 ? 'Free (1-5)'
+              : s.max_players <= 15 ? '£5 (6-15)'
+              : s.max_players <= 32 ? '£10 (16-32)'
+              : '£20 (33-48)'
+            return (
+              <div key={s.id} className="px-5 py-3 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-bold text-brand-navy truncate">{s.name}</p>
+                  <p className="text-xs text-brand-navy/40">{s.organiser_email} · {new Date(s.created_at).toLocaleDateString('en-GB')}</p>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <span className="text-[10px] font-bold text-brand-navy/30">{tier}</span>
+                  <span className="text-xs font-bold text-brand-navy/50">{s.player_count}/{s.max_players || 5}</span>
+                  {s.paid_amount > 0 && (
+                    <span className="text-[10px] font-bold text-brand-green">£{(s.paid_amount / 100).toFixed(0)} paid</span>
+                  )}
+                  <span className={`text-[10px] font-extrabold uppercase tracking-wider px-2 py-1 rounded-full ${
+                    s.status === 'open' ? 'bg-brand-green/20 text-[#1a7a00]' :
+                    s.status === 'drawn' ? 'bg-brand-blue/10 text-brand-blue' :
+                    s.status === 'draft' ? 'bg-yellow-100 text-yellow-700' :
+                    'bg-gray-100 text-gray-500'
+                  }`}>{s.status}</span>
+                </div>
               </div>
-              <div className="flex items-center gap-2 flex-shrink-0">
-                <span className="text-xs font-bold text-brand-navy/50">{s.player_count} players</span>
-                <span className={`text-[10px] font-extrabold uppercase tracking-wider px-2 py-1 rounded-full ${
-                  s.status === 'open' ? 'bg-brand-green/20 text-[#1a7a00]' :
-                  s.status === 'drawn' ? 'bg-brand-blue/10 text-brand-blue' :
-                  s.status === 'draft' ? 'bg-yellow-100 text-yellow-700' :
-                  'bg-gray-100 text-gray-500'
-                }`}>{s.status}</span>
-              </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       </div>
 
