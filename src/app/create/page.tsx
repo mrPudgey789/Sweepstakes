@@ -24,6 +24,7 @@ export default function CreateSweepstakePage() {
   const [mode, setMode] = useState<'random' | 'pick_your_own'>('random')
   const [entryAmount, setEntryAmount] = useState<number>(10)
   const [customAmount, setCustomAmount] = useState('')
+  const [currency, setCurrency] = useState('GBP')
   const [winnerStructure, setWinnerStructure] = useState<'single' | 'top_three'>('single')
   const [paymentMethod, setPaymentMethod] = useState<'paypal' | 'manual' | null>(null)
   const [paypalInput, setPaypalInput] = useState('')
@@ -48,6 +49,7 @@ export default function CreateSweepstakePage() {
         if (state.mode) setMode(state.mode)
         if (state.entryAmount) setEntryAmount(state.entryAmount)
         if (state.customAmount) setCustomAmount(state.customAmount)
+        if (state.currency) setCurrency(state.currency)
         if (state.winnerStructure) setWinnerStructure(state.winnerStructure)
         if (state.paymentMethod) setPaymentMethod(state.paymentMethod)
         if (state.paypalInput) setPaypalInput(state.paypalInput)
@@ -133,7 +135,7 @@ export default function CreateSweepstakePage() {
         // If email confirmation required, save wizard state and redirect to verify
         if (!data.session) {
           localStorage.setItem('sweepstake_wizard', JSON.stringify({
-            name, organiserName, mode, entryAmount, customAmount, winnerStructure,
+            name, organiserName, mode, entryAmount, customAmount, currency, winnerStructure,
             paymentMethod, paypalInput, band, organiserId: result.id, organiserPlays,
             step: 7,
           }))
@@ -169,7 +171,7 @@ export default function CreateSweepstakePage() {
       const res = await fetch('/api/sweepstakes/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, mode, entry_amount: effectiveAmount, currency: 'GBP', winner_structure: winnerStructure, paypal_link: paypalLink, band, organiser_id: organiserId, organiser_plays: organiserPlays, organiser_name: organiserName, organiser_email: authEmail }),
+        body: JSON.stringify({ name, mode, entry_amount: effectiveAmount, currency, winner_structure: winnerStructure, paypal_link: paypalLink, band, organiser_id: organiserId, organiser_plays: organiserPlays, organiser_name: organiserName, organiser_email: authEmail }),
       })
       const result = await res.json()
       if (!res.ok) { setError(result.error || 'Failed to create sweepstake.'); setLoading(false); return }
@@ -313,33 +315,59 @@ export default function CreateSweepstakePage() {
       )}
 
       {/* ===== Step 3: Entry amount ===== */}
-      {step === 3 && (
-        <div className="animate-slideUp">
-          <p className="text-lg font-bold text-brand-navy mb-1">Entry amount per player</p>
-          <p className="text-sm text-gray-500 mb-5">Players pay you directly. We never touch this money.</p>
-          <div className="grid grid-cols-4 gap-3 mb-5">
-            {ENTRY_PRESETS.map((amt) => (
-              <button
-                key={amt}
-                onClick={() => { setEntryAmount(amt); setCustomAmount('') }}
-                className={`border-2 rounded-2xl py-3 text-base font-bold transition-all ${
-                  entryAmount === amt && !customAmount
-                    ? 'border-brand-green bg-brand-green/10 text-brand-navy shadow-md'
-                    : 'border-gray-200 text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                {formatCurrency(amt)}
-              </button>
-            ))}
+      {step === 3 && (() => {
+        const CURRENCIES = [
+          { code: 'GBP', symbol: '£', label: '£ GBP' },
+          { code: 'EUR', symbol: '€', label: '€ EUR' },
+          { code: 'USD', symbol: '$', label: '$ USD' },
+        ]
+        const currSymbol = CURRENCIES.find(c => c.code === currency)?.symbol || '£'
+        return (
+          <div className="animate-slideUp">
+            <p className="text-lg font-bold text-brand-navy mb-1">Entry amount per player</p>
+            <p className="text-sm text-gray-500 mb-5">Players pay you directly. We never touch this money.</p>
+
+            {/* Currency selector */}
+            <div className="flex gap-2 mb-5">
+              {CURRENCIES.map(c => (
+                <button
+                  key={c.code}
+                  onClick={() => setCurrency(c.code)}
+                  className={`flex-1 border-2 rounded-2xl py-2.5 text-sm font-bold transition-all ${
+                    currency === c.code
+                      ? 'border-brand-green bg-brand-green/10 text-brand-navy shadow-md'
+                      : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                  }`}
+                >
+                  {c.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-4 gap-3 mb-5">
+              {ENTRY_PRESETS.map((amt) => (
+                <button
+                  key={amt}
+                  onClick={() => { setEntryAmount(amt); setCustomAmount('') }}
+                  className={`border-2 rounded-2xl py-3 text-base font-bold transition-all ${
+                    entryAmount === amt && !customAmount
+                      ? 'border-brand-green bg-brand-green/10 text-brand-navy shadow-md'
+                      : 'border-gray-200 text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  {formatCurrency(amt, currency)}
+                </button>
+              ))}
+            </div>
+            <label className="block text-sm font-semibold text-gray-600 mb-2">Or enter a custom amount</label>
+            <div className="relative">
+              <span className="absolute left-4 top-3.5 text-gray-400 text-lg font-bold">{currSymbol}</span>
+              <input type="number" min="1" step="0.01" value={customAmount} onChange={(e) => setCustomAmount(e.target.value)} placeholder="0.00" className="w-full border-2 border-gray-200 rounded-2xl pl-9 pr-4 py-3 text-lg focus:border-brand-blue focus:ring-0 focus:outline-none" />
+            </div>
+            {/* CTA in fixed bar below */}
           </div>
-          <label className="block text-sm font-semibold text-gray-600 mb-2">Or enter a custom amount</label>
-          <div className="relative">
-            <span className="absolute left-4 top-3.5 text-gray-400 text-lg font-bold">&#163;</span>
-            <input type="number" min="1" step="0.01" value={customAmount} onChange={(e) => setCustomAmount(e.target.value)} placeholder="0.00" className="w-full border-2 border-gray-200 rounded-2xl pl-9 pr-4 py-3 text-lg focus:border-brand-blue focus:ring-0 focus:outline-none" />
-          </div>
-          {/* CTA in fixed bar below */}
-        </div>
-      )}
+        )
+      })()}
 
       {/* ===== Step 4: Winners ===== */}
       {step === 4 && (
@@ -567,7 +595,7 @@ export default function CreateSweepstakePage() {
             {[
               ['Name', name],
               ['Mode', mode === 'random' ? 'Random draw' : 'Pick your own'],
-              ['Entry amount', formatCurrency(effectiveAmount)],
+              ['Entry amount', formatCurrency(effectiveAmount, currency)],
               ['Winners', winnerStructure === 'single' ? 'Single winner' : '1st, 2nd, 3rd'],
               ['Payment', paymentMethod === 'paypal' ? `paypal.me/${normalisePaypalHandle(paypalInput)}` : 'Handled outside the app'],
               ['Players', bandConfig?.label || ''],
