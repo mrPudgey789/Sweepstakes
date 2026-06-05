@@ -125,7 +125,7 @@ export default function AdminPage() {
                   <span className="text-[10px] font-bold text-brand-navy/30">{tier}</span>
                   <span className="text-xs font-bold text-brand-navy/50">{s.player_count}/{s.max_players || 5}</span>
                   {s.paid_amount > 0 && (
-                    <span className="text-[10px] font-bold text-brand-green">£{(s.paid_amount / 100).toFixed(0)} paid</span>
+                    <span className="text-[10px] font-bold text-brand-green">£{s.paid_amount} paid</span>
                   )}
                   <span className={`text-[10px] font-extrabold uppercase tracking-wider px-2 py-1 rounded-full ${
                     s.status === 'open' ? 'bg-brand-green/20 text-[#1a7a00]' :
