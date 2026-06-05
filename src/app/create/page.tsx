@@ -378,13 +378,12 @@ export default function CreateSweepstakePage() {
                 <button
                   key={amt}
                   onClick={() => { setEntryAmount(amt); setCustomAmount('') }}
-                  className={`relative border-2 rounded-2xl py-3 text-base font-bold transition-all ${
+                  className={`border-2 rounded-2xl py-3 text-base font-bold transition-all ${
                     entryAmount === amt && !customAmount
                       ? 'border-brand-green bg-brand-green/10 text-brand-navy shadow-md'
                       : 'border-gray-200 text-gray-700 hover:border-gray-300'
                   }`}
                 >
-                  {amt === 10 && <span className="absolute -top-2 left-1/2 -translate-x-1/2 text-[9px] bg-brand-blue text-white px-2 py-0.5 rounded-full font-bold whitespace-nowrap">Popular</span>}
                   {formatCurrency(amt, currency)}
                 </button>
               ))}
@@ -594,23 +593,18 @@ export default function CreateSweepstakePage() {
                 return (
                   <label
                     key={key}
-                    className={`relative flex flex-col items-center text-center p-5 rounded-2xl cursor-pointer transition-all ${
+                    className={`relative flex flex-col items-center text-center p-5 rounded-2xl cursor-pointer transition-all border-2 ${
                       isSelected
-                        ? 'border-2 border-brand-green bg-brand-green/10 shadow-md'
-                        : isPopular
-                        ? 'border-2 border-brand-blue bg-brand-blue/5'
-                        : 'border-2 border-gray-200 hover:border-gray-300'
+                        ? 'border-brand-green bg-brand-green/10 shadow-md'
+                        : 'border-gray-200 hover:border-gray-300'
                     }`}
                   >
                     <input type="radio" name="band" value={key} checked={isSelected} onChange={() => setBand(key)} className="sr-only" />
                     {key === 'free' && (
-                      <span className="absolute -top-2.5 text-[10px] bg-brand-green text-brand-navy px-2.5 py-0.5 rounded-full font-bold">Free</span>
+                      <span className="absolute -top-2.5 left-3 text-[10px] bg-brand-green text-brand-navy px-2.5 py-0.5 rounded-full font-bold">Free</span>
                     )}
-                    {isPopular && !isSelected && (
-                      <span className="absolute -top-2.5 text-[10px] bg-brand-blue text-white px-2.5 py-0.5 rounded-full font-bold">Popular</span>
-                    )}
-                    {isPopular && isSelected && (
-                      <span className="absolute -top-2.5 text-[10px] bg-brand-green text-brand-navy px-2.5 py-0.5 rounded-full font-bold">Popular</span>
+                    {isPopular && (
+                      <span className={`absolute -top-2.5 left-3 text-[10px] px-2.5 py-0.5 rounded-full font-bold ${isSelected ? 'bg-brand-green text-brand-navy' : 'bg-brand-blue text-white'}`}>Popular</span>
                     )}
                     <span className="heading text-2xl text-brand-navy mb-1">
                       {b.amount === 0 ? '£0' : `£${b.display.replace('.00', '')}`}
