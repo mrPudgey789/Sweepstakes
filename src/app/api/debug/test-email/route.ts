@@ -60,6 +60,28 @@ export async function GET(request: Request) {
     }
   }
 
+  if (type === 'team_drawn') {
+    try {
+      const { default: TeamDrawn } = await import('@/lib/email/templates/team-drawn')
+      const r = await sendEmail({
+        to,
+        subject: `You got ${searchParams.get('team')}! 🏆`,
+        template: TeamDrawn,
+        props: {
+          playerName: searchParams.get('player') || 'there',
+          teamName: searchParams.get('team') || 'TBD',
+          teamCode: searchParams.get('code') || 'TBD',
+          sweepstakeName: searchParams.get('sweep') || 'Sweepstake',
+          appUrl,
+          sweepstakeId: searchParams.get('sid') || '',
+        },
+      })
+      return NextResponse.json({ team_drawn: r })
+    } catch (err) {
+      return NextResponse.json({ error: String(err) }, { status: 500 })
+    }
+  }
+
   // Default: send all test emails
   try {
     const { default: JoinConfirmation } = await import('@/lib/email/templates/join-confirmation')
