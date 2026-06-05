@@ -54,25 +54,48 @@ export async function POST(
       return NextResponse.json({ error: 'No entries to assign teams to.' }, { status: 400 })
     }
 
-    // Get tournament from sweepstake
+    // Get tournament and draw_pool from sweepstake
     const { data: sweepFull } = await supabase
       .from('sweepstakes')
-      .select('tournament_id, name')
+      .select('tournament_id, name, draw_pool')
       .eq('id', params.id)
       .single()
 
+    const drawPool = (sweepFull as Record<string, unknown>)?.draw_pool as string || 'all'
+
     // Get all teams
-    const { data: teams } = await supabase
+    const { data: allTeams } = await supabase
       .from('teams')
       .select('id, name, code')
       .eq('tournament_id', sweepFull?.tournament_id || '')
 
-    if (!teams || teams.length === 0) {
+    if (!allTeams || allTeams.length === 0) {
       return NextResponse.json({ error: 'No teams available.' }, { status: 500 })
     }
 
+    // If top_ranked, filter to only the top N teams (where N = number of entries)
+    // Ranked by FIFA seeding: pot 1 teams first (group position 1A-1L), then pot 2, etc.
+    // For simplicity, use a hardcoded ranking of the strongest teams
+    let teamPool = allTeams
+    if (drawPool === 'top_ranked') {
+      const TOP_RANKED_CODES = [
+        'ARG', 'FRA', 'BRA', 'ENG', 'ESP', 'GER', 'POR', 'NED',
+        'BEL', 'CRO', 'URU', 'COL', 'ITA', 'MEX', 'USA', 'SUI',
+        'JPN', 'DEN', 'SEN', 'POL', 'KOR', 'MAR', 'AUS', 'NOR',
+        'TUR', 'AUT', 'SWE', 'EGY', 'IRN', 'SRB', 'CAN', 'ECU',
+      ]
+      // Take the top N codes where N = number of entries (minimum the entry count)
+      const needed = Math.max(entries.length, 8)
+      const topCodes = new Set(TOP_RANKED_CODES.slice(0, needed))
+      const filtered = allTeams.filter(t => topCodes.has(t.code))
+      if (filtered.length >= entries.length) {
+        teamPool = filtered
+      }
+      // If not enough top teams, fall back to all
+    }
+
     // Shuffle teams (Fisher-Yates)
-    const shuffled = [...teams]
+    const shuffled = [...teamPool]
     for (let i = shuffled.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]

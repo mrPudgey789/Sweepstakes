@@ -22,6 +22,7 @@ export default function CreateSweepstakePage() {
   const [tcAccepted, setTcAccepted] = useState(false)
   const [name, setName] = useState('')
   const [mode, setMode] = useState<'random' | 'pick_your_own'>('random')
+  const [drawPool, setDrawPool] = useState<'all' | 'top_ranked'>('all')
   const [entryAmount, setEntryAmount] = useState<number>(10)
   const [customAmount, setCustomAmount] = useState('')
   const [currency, setCurrency] = useState('GBP')
@@ -50,6 +51,7 @@ export default function CreateSweepstakePage() {
         if (state.entryAmount) setEntryAmount(state.entryAmount)
         if (state.customAmount) setCustomAmount(state.customAmount)
         if (state.currency) setCurrency(state.currency)
+        if (state.drawPool) setDrawPool(state.drawPool)
         if (state.winnerStructure) setWinnerStructure(state.winnerStructure)
         if (state.paymentMethod) setPaymentMethod(state.paymentMethod)
         if (state.paypalInput) setPaypalInput(state.paypalInput)
@@ -135,7 +137,7 @@ export default function CreateSweepstakePage() {
         // If email confirmation required, save wizard state and redirect to verify
         if (!data.session) {
           localStorage.setItem('sweepstake_wizard', JSON.stringify({
-            name, organiserName, mode, entryAmount, customAmount, currency, winnerStructure,
+            name, organiserName, mode, drawPool, entryAmount, customAmount, currency, winnerStructure,
             paymentMethod, paypalInput, band, organiserId: result.id, organiserPlays,
             step: 7,
           }))
@@ -171,7 +173,7 @@ export default function CreateSweepstakePage() {
       const res = await fetch('/api/sweepstakes/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, mode, entry_amount: effectiveAmount, currency, winner_structure: winnerStructure, paypal_link: paypalLink, band, organiser_id: organiserId, organiser_plays: organiserPlays, organiser_name: organiserName, organiser_email: authEmail }),
+        body: JSON.stringify({ name, mode, draw_pool: drawPool, entry_amount: effectiveAmount, currency, winner_structure: winnerStructure, paypal_link: paypalLink, band, organiser_id: organiserId, organiser_plays: organiserPlays, organiser_name: organiserName, organiser_email: authEmail }),
       })
       const result = await res.json()
       if (!res.ok) { setError(result.error || 'Failed to create sweepstake.'); setLoading(false); return }
@@ -298,6 +300,33 @@ export default function CreateSweepstakePage() {
               </div>
             </div>
           </label>
+
+          {/* Draw pool sub-option (only when random is selected) */}
+          {mode === 'random' && (
+            <div className="ml-2 space-y-2 animate-fadeIn">
+              <p className="text-sm font-semibold text-brand-navy/60">Draw from which teams?</p>
+              <label className={`flex items-center gap-3 border-2 rounded-xl px-4 py-3 cursor-pointer transition-all ${drawPool === 'all' ? 'border-brand-blue bg-brand-blue/5' : 'border-gray-200 hover:border-gray-300'}`}>
+                <input type="radio" name="drawPool" checked={drawPool === 'all'} onChange={() => setDrawPool('all')} className="sr-only" />
+                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${drawPool === 'all' ? 'border-brand-blue bg-brand-blue' : 'border-gray-300'}`}>
+                  {drawPool === 'all' && <div className="w-2 h-2 rounded-full bg-white" />}
+                </div>
+                <div>
+                  <span className="text-sm font-bold text-brand-navy">All 48 teams</span>
+                  <p className="text-xs text-gray-500">Every nation in the tournament is in the hat.</p>
+                </div>
+              </label>
+              <label className={`flex items-center gap-3 border-2 rounded-xl px-4 py-3 cursor-pointer transition-all ${drawPool === 'top_ranked' ? 'border-brand-blue bg-brand-blue/5' : 'border-gray-200 hover:border-gray-300'}`}>
+                <input type="radio" name="drawPool" checked={drawPool === 'top_ranked'} onChange={() => setDrawPool('top_ranked')} className="sr-only" />
+                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${drawPool === 'top_ranked' ? 'border-brand-blue bg-brand-blue' : 'border-gray-300'}`}>
+                  {drawPool === 'top_ranked' && <div className="w-2 h-2 rounded-full bg-white" />}
+                </div>
+                <div>
+                  <span className="text-sm font-bold text-brand-navy">Top-ranked teams only</span>
+                  <p className="text-xs text-gray-500">Best for smaller groups. Only the strongest nations are in the draw.</p>
+                </div>
+              </label>
+            </div>
+          )}
           <label className={`block border-2 rounded-2xl p-5 cursor-pointer transition-all ${mode === 'pick_your_own' ? 'border-brand-green bg-brand-green/10 shadow-md' : 'border-gray-200 hover:border-gray-300'}`}>
             <input type="radio" name="mode" checked={mode === 'pick_your_own'} onChange={() => setMode('pick_your_own')} className="sr-only" />
             <div className="flex items-center justify-between">
@@ -594,7 +623,7 @@ export default function CreateSweepstakePage() {
           <div className="bg-white border-2 border-gray-100 rounded-3xl divide-y-2 divide-gray-100 shadow-lg overflow-hidden mb-6">
             {[
               ['Name', name],
-              ['Mode', mode === 'random' ? 'Random draw' : 'Pick your own'],
+              ['Mode', mode === 'random' ? (drawPool === 'top_ranked' ? 'Random draw (top teams)' : 'Random draw (all teams)') : 'Pick your own'],
               ['Entry amount', formatCurrency(effectiveAmount, currency)],
               ['Winners', winnerStructure === 'single' ? 'Single winner' : '1st, 2nd, 3rd'],
               ['Payment', paymentMethod === 'paypal' ? `paypal.me/${normalisePaypalHandle(paypalInput)}` : 'Handled outside the app'],

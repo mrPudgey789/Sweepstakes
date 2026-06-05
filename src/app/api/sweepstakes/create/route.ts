@@ -10,6 +10,7 @@ export async function POST(request: Request) {
     const {
       name,
       mode,
+      draw_pool,
       entry_amount,
       currency,
       winner_structure,
@@ -44,6 +45,7 @@ export async function POST(request: Request) {
         tournament_id: (await supabase.from('tournaments').select('id').eq('name', 'FIFA World Cup 2026').single()).data?.id,
         name,
         mode,
+        draw_pool: draw_pool || 'all',
         entry_amount: parseFloat(entry_amount),
         currency: currency || 'GBP',
         winner_structure: winner_structure || 'single',
