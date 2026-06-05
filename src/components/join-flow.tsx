@@ -124,7 +124,6 @@ export function JoinFlow({
           if (intent.displayName) setDisplayName(intent.displayName)
           if (intent.email) setEmail(intent.email)
           if (intent.selectedTeam) setSelectedTeam(intent.selectedTeam)
-          setTcAccepted(true) // they already accepted before verification
         }
       } catch { /* ignore */ }
     }
@@ -142,17 +141,8 @@ export function JoinFlow({
           const intent = JSON.parse(saved)
           if (intent.sweepstakeId === sweepstakeId) {
             localStorage.removeItem('join_intent')
-            // Skip to terms (already accepted) then auto-join
-            if (mode === 'pick_your_own' && !intent.selectedTeam) {
-              setStep('team')
-            } else {
-              setStep('terms')
-              // Auto-join after a tick (terms already accepted)
-              setTimeout(() => {
-                const joinBtn = document.querySelector('[data-auto-join]') as HTMLButtonElement
-                if (joinBtn) joinBtn.click()
-              }, 500)
-            }
+            // Go to T&Cs step (user still needs to accept)
+            setStep('terms')
             return
           }
         }
