@@ -545,10 +545,43 @@ export default function CreateSweepstakePage() {
                   <label className="block text-sm font-bold mb-2 text-brand-navy">{authMode === 'signup' ? 'Create a password' : 'Password'}</label>
                   <input type="password" required minLength={6} value={authPassword} onChange={(e) => setAuthPassword(e.target.value)} className="w-full border-2 border-gray-200 rounded-2xl px-4 py-3.5 text-base focus:border-brand-blue focus:ring-0 focus:outline-none transition-colors" />
                   {authMode === 'login' && (
-                    <div className="mt-2 text-right">
+                    <div className="mt-2 flex items-center justify-between">
                       <Link href="/auth/forgot-password?next=/create" className="text-sm text-brand-blue font-semibold hover:underline">
                         Forgot password?
                       </Link>
+                      <button
+                        type="button"
+                        disabled={authLoading || !authEmail || !authPassword}
+                        onClick={async () => {
+                          setError(null)
+                          setAuthLoading(true)
+                          const supabase = createClient()
+                          const { data, error: signInError } = await supabase.auth.signInWithPassword({ email: authEmail, password: authPassword })
+                          if (signInError) {
+                            setError(signInError.message)
+                            setAuthLoading(false)
+                            return
+                          }
+                          if (data.user) {
+                            // Set up organiser record
+                            const res = await fetch('/api/organisers/create', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ email: authEmail, auth_id: data.user.id }),
+                            })
+                            const result = await res.json()
+                            if (res.ok) setOrganiserId(result.id)
+                            // Override name with saved display name if available
+                            const savedName = data.user.user_metadata?.display_name || data.user.user_metadata?.name
+                            if (savedName) setOrganiserName(savedName)
+                            setIsLoggedIn(true)
+                          }
+                          setAuthLoading(false)
+                        }}
+                        className="text-sm font-bold text-white bg-brand-blue px-5 py-2 rounded-full hover:bg-brand-blue-dark disabled:opacity-40 transition-colors"
+                      >
+                        {authLoading ? 'Logging in...' : 'Log in'}
+                      </button>
                     </div>
                   )}
                   {authMode === 'signup' && authPassword.length > 0 && (() => {
