@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { buildPaypalLink, formatCurrency } from '@/lib/utils'
 import { TeamFlag } from '@/components/team-flag'
+import { useRouter } from 'next/navigation'
 
 interface Props {
   sweepstakeId: string
@@ -110,22 +111,62 @@ export function JoinFlow({
   const [entryId, setEntryId] = useState<string | null>(null)
   const [authMode, setAuthMode] = useState<'signup' | 'login'>('signup')
   const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const router = useRouter()
 
-  // Check if user is already logged in — skip to T&Cs
+  // Check if user is already logged in, or if returning from email verification
   useEffect(() => {
+    // Restore join intent from localStorage (returning from email verification)
+    const saved = localStorage.getItem('join_intent')
+    if (saved) {
+      try {
+        const intent = JSON.parse(saved)
+        if (intent.sweepstakeId === sweepstakeId) {
+          if (intent.displayName) setDisplayName(intent.displayName)
+          if (intent.email) setEmail(intent.email)
+          if (intent.selectedTeam) setSelectedTeam(intent.selectedTeam)
+          setTcAccepted(true) // they already accepted before verification
+        }
+      } catch { /* ignore */ }
+    }
+
     const supabase = createClient()
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (user) {
         setIsLoggedIn(true)
         setEmail(user.email || '')
         const name = user.user_metadata?.display_name || user.user_metadata?.name || ''
-        setDisplayName(name)
-        // Skip step 1 entirely if we have a display name
-        if (name) {
+        if (name && !displayName) setDisplayName(name)
+
+        // If returning from verification with saved intent, go straight to join
+        if (saved) {
+          const intent = JSON.parse(saved)
+          if (intent.sweepstakeId === sweepstakeId) {
+            localStorage.removeItem('join_intent')
+            // Skip to terms (already accepted) then auto-join
+            if (mode === 'pick_your_own' && !intent.selectedTeam) {
+              setStep('team')
+            } else {
+              setStep('terms')
+              // Auto-join after a tick (terms already accepted)
+              setTimeout(() => {
+                const joinBtn = document.querySelector('[data-auto-join]') as HTMLButtonElement
+                if (joinBtn) joinBtn.click()
+              }, 500)
+            }
+            return
+          }
+        }
+
+        // Normal logged-in flow: skip step 1 if we have a name
+        if (name || displayName) {
           setStep('terms')
         }
+      } else if (saved) {
+        // Not logged in but have saved intent: user hasn't verified yet
+        localStorage.removeItem('join_intent')
       }
     })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
@@ -343,9 +384,10 @@ export function JoinFlow({
               if (password.length < 6) { setError('Password must be at least 6 characters.'); return }
               if (!displayName.trim()) { setError('Please enter your name.'); return }
 
+              setLoading(true)
+              const supabase = createClient()
+
               if (authMode === 'login') {
-                setLoading(true)
-                const supabase = createClient()
                 const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
                 if (signInError) {
                   setError(signInError.message)
@@ -354,14 +396,48 @@ export function JoinFlow({
                 }
                 setIsLoggedIn(true)
                 setLoading(false)
+                setStep('terms')
+                return
               }
 
+              // Signup: create account with email verification
+              const appUrl = window.location.origin
+              const { data, error: signUpError } = await supabase.auth.signUp({
+                email,
+                password,
+                options: {
+                  data: { display_name: displayName, role: 'player' },
+                  emailRedirectTo: `${appUrl}/auth/callback?next=${encodeURIComponent(window.location.pathname)}`,
+                },
+              })
+
+              if (signUpError) {
+                setError(signUpError.message)
+                setLoading(false)
+                return
+              }
+
+              // If email confirmation required (no session), save intent and redirect
+              if (!data.session) {
+                localStorage.setItem('join_intent', JSON.stringify({
+                  sweepstakeId,
+                  displayName,
+                  email,
+                  selectedTeam,
+                }))
+                router.push(`/auth/verify?email=${encodeURIComponent(email)}`)
+                return
+              }
+
+              // Session exists (email already confirmed or confirmation disabled)
+              setIsLoggedIn(true)
+              setLoading(false)
               setStep('terms')
             }}
             disabled={!displayName.trim() || (!isLoggedIn && (!email || password.length < 6)) || loading}
             className="btn-primary w-full disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            {loading ? 'Logging in...' : 'Continue'}
+            {loading ? (authMode === 'login' ? 'Logging in...' : 'Creating account...') : 'Continue'}
           </button>
         </div>
       )}
@@ -429,6 +505,7 @@ export function JoinFlow({
               Back
             </button>
             <button
+              data-auto-join
               onClick={() => {
                 if (mode === 'pick_your_own') {
                   setStep('team')

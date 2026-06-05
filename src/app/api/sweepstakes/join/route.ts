@@ -5,7 +5,7 @@ import { sendNotification } from '@/lib/email'
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const { sweepstake_id, email, password, display_name, team_id } = body
+    const { sweepstake_id, email, display_name, team_id } = body
 
     if (!sweepstake_id || !email || !display_name) {
       return NextResponse.json({ error: 'Missing required fields.' }, { status: 400 })
@@ -13,30 +13,12 @@ export async function POST(request: Request) {
 
     const supabase = createAdminClient()
 
-    // Create Supabase auth user for the player so they can log in
-    if (password) {
-      // Try to create user - will fail gracefully if email already exists
-      const { data: newUser, error: signUpErr } = await supabase.auth.admin.createUser({
-        email,
-        password,
-        email_confirm: true,
-        user_metadata: { role: 'player', display_name },
-      })
-      if (signUpErr) {
-        if (signUpErr.message.includes('already been registered')) {
-          // User exists - update their password so the one they just entered works
-          const { data: userList } = await supabase.auth.admin.listUsers()
-          const existing = userList?.users?.find(u => u.email === email)
-          if (existing) {
-            await supabase.auth.admin.updateUserById(existing.id, { password })
-          }
-        } else {
-          console.error('Auth signup error:', signUpErr)
-        }
-      } else if (newUser?.user) {
-        // Link new auth user to the players table
-        await supabase.from('players').update({ auth_id: newUser.user.id }).eq('email', email)
-      }
+    // Link auth user to player record if not already linked
+    // (Auth signup now happens client-side with email verification)
+    const { data: userList } = await supabase.auth.admin.listUsers()
+    const authUser = userList?.users?.find(u => u.email === email)
+    if (authUser) {
+      await supabase.from('players').update({ auth_id: authUser.id }).eq('email', email)
     }
 
     // Check sweepstake exists and is open
