@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { sendNotification } from '@/lib/email'
 
 export async function POST(
   _request: Request,
@@ -53,11 +54,18 @@ export async function POST(
       return NextResponse.json({ error: 'No entries to assign teams to.' }, { status: 400 })
     }
 
+    // Get tournament from sweepstake
+    const { data: sweepFull } = await supabase
+      .from('sweepstakes')
+      .select('tournament_id, name')
+      .eq('id', params.id)
+      .single()
+
     // Get all teams
     const { data: teams } = await supabase
       .from('teams')
-      .select('id, name')
-      .eq('tournament_id', (await supabase.from('tournaments').select('id').eq('name', 'FIFA World Cup 2026').single()).data?.id || '')
+      .select('id, name, code')
+      .eq('tournament_id', sweepFull?.tournament_id || '')
 
     if (!teams || teams.length === 0) {
       return NextResponse.json({ error: 'No teams available.' }, { status: 500 })
@@ -96,6 +104,32 @@ export async function POST(
         drawn_at: new Date().toISOString(),
       })
       .eq('id', params.id)
+
+    // Send "team drawn" email to each player
+    const { data: drawnEntries } = await supabase
+      .from('entries')
+      .select('id, team_id, players(email, display_name), teams(name, code)')
+      .eq('sweepstake_id', params.id)
+      .not('team_id', 'is', null)
+
+    for (const entry of drawnEntries || []) {
+      const player = (entry as Record<string, unknown>).players as { email: string; display_name: string | null } | null
+      const team = (entry as Record<string, unknown>).teams as { name: string; code: string } | null
+      if (!player || !team) continue
+
+      sendNotification({
+        type: 'team_drawn',
+        entryId: entry.id,
+        email: player.email,
+        data: {
+          playerName: player.display_name || 'there',
+          teamName: team.name,
+          teamCode: team.code,
+          sweepstakeName: sweepFull?.name || 'your sweepstake',
+          sweepstakeId: params.id,
+        },
+      }).catch(console.error)
+    }
 
     return NextResponse.json({
       message: `Draw complete. ${assignments.length} teams assigned.`,

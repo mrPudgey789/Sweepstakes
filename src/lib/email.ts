@@ -2,7 +2,7 @@ import { sendEmailAsync } from '@/lib/email/send'
 import { buildPaypalLink } from '@/lib/utils'
 
 interface NotificationPayload {
-  type: 'join_confirmation' | 'payment_confirmed' | 'knockout' | 'standings_update' | 'organiser_winner'
+  type: 'join_confirmation' | 'payment_confirmed' | 'knockout' | 'standings_update' | 'organiser_winner' | 'team_drawn'
   entryId: string
   email: string
   data: Record<string, unknown>
@@ -108,6 +108,26 @@ export async function sendNotification(payload: NotificationPayload) {
           playerRank: data.playerRank || null,
           appUrl,
           unsubscribeUrl: `${appUrl}/unsubscribe?entry=${entryId}`,
+        },
+        entryId,
+        notificationType: type,
+      })
+      break
+    }
+
+    case 'team_drawn': {
+      const TeamDrawn = (await import('@/lib/email/templates/team-drawn')).default
+      sendEmailAsync({
+        to: email,
+        subject: `You got ${data.teamName}! 🏆`,
+        template: TeamDrawn,
+        props: {
+          playerName: data.playerName || 'there',
+          teamName: data.teamName,
+          teamCode: data.teamCode,
+          sweepstakeName: data.sweepstakeName,
+          appUrl,
+          sweepstakeId: data.sweepstakeId,
         },
         entryId,
         notificationType: type,
