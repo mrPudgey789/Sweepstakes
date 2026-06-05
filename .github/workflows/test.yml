@@ -14,7 +14,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
+      - run: npm install
       - run: npm run test:unit
 
   e2e-tests:
@@ -46,7 +46,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
+      - run: npm install
         if: steps.check.outputs.skip != 'true'
       - run: npx playwright install chromium
         if: steps.check.outputs.skip != 'true'
