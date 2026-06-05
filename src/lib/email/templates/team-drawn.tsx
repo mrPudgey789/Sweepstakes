@@ -8,6 +8,7 @@ import {
   Button,
   Img,
 } from '@react-email/components'
+import { getFlagUrl } from '@/lib/flags'
 
 interface TeamDrawnProps {
   playerName: string
@@ -26,8 +27,7 @@ export default function TeamDrawn({
   appUrl,
   sweepstakeId,
 }: TeamDrawnProps) {
-  // Map FIFA code to ISO for flag URL
-  const flagUrl = `https://flagcdn.com/w160/${(teamCode || '').toLowerCase().slice(0, 2)}.png`
+  const flagUrl = getFlagUrl(teamCode || '', 'w160')
 
   return (
     <Html lang="en">
