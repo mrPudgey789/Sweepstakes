@@ -6,6 +6,7 @@ import { NavBar } from '@/components/nav-bar'
 import Preloader from '@/components/preloader'
 import { useState, useEffect } from 'react'
 import { Analytics } from '@vercel/analytics/react'
+import { JoinRedirect } from '@/components/join-redirect'
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
 const anton = Anton({ weight: '400', subsets: ['latin'], variable: '--font-anton' })
@@ -45,6 +46,7 @@ export default function RootLayout({
           </main>
         </div>
         <Analytics />
+        <JoinRedirect />
       </body>
     </html>
   )

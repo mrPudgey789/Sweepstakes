@@ -419,8 +419,11 @@ export function JoinFlow({
 
               // If email confirmation required (no session), save intent and redirect
               if (!data.session) {
+                // Save the current path so we can redirect back after verification
+                const joinPath = window.location.pathname
                 localStorage.setItem('join_intent', JSON.stringify({
                   sweepstakeId,
+                  joinPath,
                   displayName,
                   email,
                   selectedTeam,
