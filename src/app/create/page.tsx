@@ -378,12 +378,13 @@ export default function CreateSweepstakePage() {
                 <button
                   key={amt}
                   onClick={() => { setEntryAmount(amt); setCustomAmount('') }}
-                  className={`border-2 rounded-2xl py-3 text-base font-bold transition-all ${
+                  className={`relative border-2 rounded-2xl py-3 text-base font-bold transition-all ${
                     entryAmount === amt && !customAmount
                       ? 'border-brand-green bg-brand-green/10 text-brand-navy shadow-md'
                       : 'border-gray-200 text-gray-700 hover:border-gray-300'
                   }`}
                 >
+                  {amt === 10 && <span className="absolute -top-2 left-1/2 -translate-x-1/2 text-[9px] bg-brand-blue text-white px-2 py-0.5 rounded-full font-bold whitespace-nowrap">Popular</span>}
                   {formatCurrency(amt, currency)}
                 </button>
               ))}
@@ -586,22 +587,39 @@ export default function CreateSweepstakePage() {
             <p className="text-sm text-gray-500 mb-2">A small one-off fee to Sweep or Weep to run your sweepstake.</p>
             <p className="text-xs text-gray-400 mb-5">This is NOT the entry fee your players pay. That goes directly to you.</p>
 
-            <div className="space-y-3 mb-6">
-              {(Object.entries(PRICING_BANDS) as [PricingBand, typeof PRICING_BANDS[PricingBand]][]).map(([key, b]) => (
-                <label key={key} className={`block border-2 rounded-2xl p-5 cursor-pointer transition-all ${band === key ? 'border-brand-green bg-brand-green/10 shadow-md' : 'border-gray-200 hover:border-gray-300'}`}>
-                  <input type="radio" name="band" value={key} checked={band === key} onChange={() => setBand(key)} className="sr-only" />
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <span className="font-bold text-brand-navy">{b.label}</span>
-                      {key === 'free' && <span className="ml-2 text-xs bg-brand-green text-brand-navy px-2.5 py-1 rounded-full font-bold">Free</span>}
-                      <p className="text-xs text-gray-500 mt-0.5">{b.tagline}</p>
-                    </div>
-                    <span className={`text-lg font-bold ${b.amount === 0 ? 'text-brand-navy' : 'text-brand-navy'}`}>
-                      {b.amount === 0 ? '£0' : formatCurrency(parseFloat(b.display))}
+            <div className="grid grid-cols-2 gap-3 mb-6">
+              {(Object.entries(PRICING_BANDS) as [PricingBand, typeof PRICING_BANDS[PricingBand]][]).map(([key, b]) => {
+                const isSelected = band === key
+                const isPopular = key === '16_32'
+                return (
+                  <label
+                    key={key}
+                    className={`relative flex flex-col items-center text-center p-5 rounded-2xl cursor-pointer transition-all ${
+                      isSelected
+                        ? 'border-2 border-brand-green bg-brand-green/10 shadow-md'
+                        : isPopular
+                        ? 'border-2 border-brand-blue bg-brand-blue/5'
+                        : 'border-2 border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <input type="radio" name="band" value={key} checked={isSelected} onChange={() => setBand(key)} className="sr-only" />
+                    {key === 'free' && (
+                      <span className="absolute -top-2.5 text-[10px] bg-brand-green text-brand-navy px-2.5 py-0.5 rounded-full font-bold">Free</span>
+                    )}
+                    {isPopular && !isSelected && (
+                      <span className="absolute -top-2.5 text-[10px] bg-brand-blue text-white px-2.5 py-0.5 rounded-full font-bold">Popular</span>
+                    )}
+                    {isPopular && isSelected && (
+                      <span className="absolute -top-2.5 text-[10px] bg-brand-green text-brand-navy px-2.5 py-0.5 rounded-full font-bold">Popular</span>
+                    )}
+                    <span className="heading text-2xl text-brand-navy mb-1">
+                      {b.amount === 0 ? '£0' : `£${b.display.replace('.00', '')}`}
                     </span>
-                  </div>
-                </label>
-              ))}
+                    <span className="text-sm font-bold text-brand-navy">{b.label}</span>
+                    <span className="text-xs text-gray-400 mt-1">{b.tagline}</span>
+                  </label>
+                )
+              })}
             </div>
 
             {!isFree && (
