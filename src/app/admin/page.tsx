@@ -15,6 +15,7 @@ interface Stats {
   recentSweepstakes: { id: string; name: string; status: string; created_at: string; player_count: number; max_players: number | null; paid_amount: number; organiser_email: string }[]
   recentPlayers: { id: string; email: string; display_name: string | null; created_at: string }[]
   notifications: { queued: number; sent: number; failed: number }
+  pollStatus: { status: string; lastRun: string; details: string | null } | null
 }
 
 export default function AdminPage() {
@@ -56,6 +57,34 @@ export default function AdminPage() {
   return (
     <div className="max-w-4xl mx-auto px-4 py-8 space-y-8">
       <h1 className="heading text-3xl text-brand-navy">Admin Dashboard</h1>
+
+      {/* Poll status */}
+      {stats.pollStatus && (() => {
+        const isError = stats.pollStatus.status === 'error'
+        const lastRun = new Date(stats.pollStatus.lastRun)
+        const ageMin = Math.round((Date.now() - lastRun.getTime()) / 60000)
+        const isStale = ageMin > 10 // warn if no successful run in 10 min
+        return (
+          <div className={`border-2 rounded-2xl p-4 flex items-center justify-between ${
+            isError ? 'bg-red-50 border-red-200' : isStale ? 'bg-yellow-50 border-yellow-200' : 'bg-green-50 border-green-200'
+          }`}>
+            <div className="flex items-center gap-3">
+              <div className={`w-3 h-3 rounded-full ${isError ? 'bg-red-500' : isStale ? 'bg-yellow-500' : 'bg-green-500'}`} />
+              <div>
+                <p className="text-sm font-bold text-brand-navy">
+                  Poll cron: {isError ? 'ERROR' : isStale ? 'STALE' : 'OK'}
+                </p>
+                <p className="text-xs text-brand-navy/50">
+                  Last run: {lastRun.toLocaleString('en-GB')} ({ageMin}m ago)
+                </p>
+              </div>
+            </div>
+            {isError && stats.pollStatus.details && (
+              <p className="text-xs text-red-600 max-w-xs truncate">{stats.pollStatus.details}</p>
+            )}
+          </div>
+        )
+      })()}
 
       {/* Overview cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">

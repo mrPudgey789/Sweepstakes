@@ -219,6 +219,12 @@ export async function GET(request: Request) {
       eliminatedTeams.push(...groupEliminated)
     }
 
+    // Backstop sweep: any group-stage team NOT in a Round of 32 fixture is eliminated.
+    // This catches the 4 worst third-placed teams in the 2026 format.
+    // Only runs once R32 fixtures have real teams assigned (not just slot placeholders).
+    const r32Eliminated = await checkR32BackstopElimination(supabase, tournamentId)
+    eliminatedTeams.push(...r32Eliminated)
+
     // Recompute standings for ALL active sweepstakes in one batch
     await materialiseAllStandings(supabase)
 
@@ -399,6 +405,60 @@ async function checkGroupEliminations(
 }
 
 /**
+ * Backstop sweep for the 2026 48-team format: once R32 fixtures have real teams,
+ * any group-stage team NOT appearing in any R32 fixture is eliminated.
+ * This catches the 4 worst third-placed teams (and confirms the 12 fourth-placed).
+ */
+async function checkR32BackstopElimination(
+  supabase: ReturnType<typeof createAdminClient>,
+  tournamentId: string
+): Promise<string[]> {
+  // Get all R32 matches
+  const { data: r32Matches } = await supabase
+    .from('matches')
+    .select('home_team_id, away_team_id')
+    .eq('tournament_id', tournamentId)
+    .eq('stage', 'round_of_32')
+
+  if (!r32Matches || r32Matches.length === 0) return []
+
+  // Collect all team IDs that appear in R32 fixtures (non-null only)
+  const r32TeamIds = new Set<string>()
+  for (const m of r32Matches) {
+    if (m.home_team_id) r32TeamIds.add(m.home_team_id as string)
+    if (m.away_team_id) r32TeamIds.add(m.away_team_id as string)
+  }
+
+  // If not all R32 slots are filled yet, skip (wait for bracket to resolve)
+  // 16 R32 matches = 32 team slots. Some may still be null.
+  const filledSlots = r32TeamIds.size
+  if (filledSlots < 32) return [] // bracket not fully resolved yet
+
+  // Get all group-stage teams
+  const { data: allTeams } = await supabase
+    .from('teams')
+    .select('id, name, status')
+    .eq('tournament_id', tournamentId)
+
+  if (!allTeams) return []
+
+  const eliminated: string[] = []
+
+  for (const team of allTeams) {
+    // Skip if already eliminated
+    if (team.status === 'eliminated') continue
+
+    // If this team is NOT in any R32 fixture, they are out
+    if (!r32TeamIds.has(team.id)) {
+      const result = await eliminateTeam(supabase, team.id, 'group')
+      if (result) eliminated.push(result)
+    }
+  }
+
+  return eliminated
+}
+
+/**
  * Record a heartbeat for the dead-man's switch.
  * Stores the last poll time and status in a simple key-value approach
  * using the notifications table (or a dedicated table if you prefer).
@@ -409,7 +469,7 @@ async function recordHeartbeat(
   status: 'started' | 'completed' | 'error',
   details?: string
 ) {
-  // Store heartbeat in a simple format: upsert a row keyed by 'poll-results'
+  // Store heartbeat in DB
   try {
     await supabase.from('cron_heartbeats').upsert({
       job_name: 'poll-results',
@@ -418,6 +478,35 @@ async function recordHeartbeat(
       last_run_at: new Date().toISOString(),
     }, { onConflict: 'job_name' })
   } catch {
-    // Table might not exist yet, that is fine
+    // Table might not exist yet
+  }
+
+  // Ping external monitor on success (dead-man's switch)
+  if (status === 'completed') {
+    const pingUrl = process.env.HEARTBEAT_PING_URL
+    if (pingUrl) {
+      try { await fetch(pingUrl, { method: 'GET' }) } catch { /* best effort */ }
+    }
+  }
+
+  // Send admin alert email on error
+  if (status === 'error' && details) {
+    const adminEmail = 'jimmyjopeel@gmail.com'
+    const resendKey = process.env.RESEND_API_KEY
+    const from = process.env.EMAIL_FROM || 'Sweep or Weep <notifications@sweeporweep.com>'
+    if (resendKey) {
+      try {
+        await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            from,
+            to: adminEmail,
+            subject: 'ALERT: Sweep or Weep poll-results cron error',
+            html: `<p>The poll-results cron failed at ${new Date().toISOString()}</p><pre>${details}</pre><p>Check Vercel function logs for details.</p>`,
+          }),
+        })
+      } catch { /* best effort */ }
+    }
   }
 }

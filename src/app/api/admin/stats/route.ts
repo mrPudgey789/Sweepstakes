@@ -75,7 +75,19 @@ export async function GET() {
     .order('created_at', { ascending: false })
     .limit(30)
 
+  // Poll status from heartbeat table
+  const { data: heartbeat } = await admin
+    .from('cron_heartbeats')
+    .select('*')
+    .eq('job_name', 'poll-results')
+    .maybeSingle()
+
   return NextResponse.json({
+    pollStatus: heartbeat ? {
+      status: heartbeat.status,
+      lastRun: heartbeat.last_run_at,
+      details: heartbeat.details,
+    } : null,
     totalSweepstakes: sweepstakesResult.count || 0,
     totalPlayers: playersResult.count || 0,
     totalEntries: entriesResult.count || 0,
