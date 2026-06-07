@@ -11,8 +11,8 @@ interface Match {
   kickoff_at: string
   venue: string | null
   status: string
-  home_team: { id: string; name: string; code: string } | null
-  away_team: { id: string; name: string; code: string } | null
+  home_team: { id: string; name: string; code: string; group_letter: string } | null
+  away_team: { id: string; name: string; code: string; group_letter: string } | null
   result: { home_score: number; away_score: number; winner_team_id: string | null; source: string } | null
 }
 
@@ -62,8 +62,8 @@ export default function FixturesPage() {
       .from('matches')
       .select(`
         id, stage, kickoff_at, venue, status, match_number, home_slot, away_slot,
-        home_team:teams!matches_home_team_id_fkey(id, name, code),
-        away_team:teams!matches_away_team_id_fkey(id, name, code),
+        home_team:teams!matches_home_team_id_fkey(id, name, code, group_letter),
+        away_team:teams!matches_away_team_id_fkey(id, name, code, group_letter),
         result:results(home_score, away_score, winner_team_id, source)
       `)
       .eq('tournament_id', tournament.id)
@@ -182,6 +182,30 @@ export default function FixturesPage() {
         const stageMatches = grouped[stage]
         if (!stageMatches) return null
 
+        // For group stage, sub-group by group letter
+        if (stage === 'group') {
+          const byGroup: Record<string, Match[]> = {}
+          for (const m of stageMatches) {
+            const groupLetter = m.home_team?.group_letter || '?'
+            if (!byGroup[groupLetter]) byGroup[groupLetter] = []
+            byGroup[groupLetter].push(m)
+          }
+
+          return Object.entries(byGroup).sort(([a], [b]) => a.localeCompare(b)).map(([groupLetter, groupMatches]) => (
+            <div key={`group-${groupLetter}`} className="mb-8">
+              <div className="flex items-center gap-3 mb-4">
+                <span className="heading text-xl text-brand-blue">
+                  Group {groupLetter}
+                </span>
+                <div className="flex-1 h-0.5 bg-brand-blue/20 rounded-full" />
+              </div>
+              <div className="space-y-3">
+                {groupMatches.map((m) => renderMatch(m))}
+              </div>
+            </div>
+          ))
+        }
+
         return (
           <div key={stage} className="mb-10">
             {/* Stage heading */}
@@ -193,7 +217,15 @@ export default function FixturesPage() {
             </div>
 
             <div className="space-y-3">
-              {stageMatches.map((m) => {
+              {stageMatches.map((m) => renderMatch(m))}
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+
+  function renderMatch(m: Match) {
                 const isLive = m.status === 'live'
                 const isFinished = m.status === 'finished'
                 // Use winner_team_id as source of truth (handles penalties)
@@ -304,11 +336,5 @@ export default function FixturesPage() {
                     </div>
                   </div>
                 )
-              })}
-            </div>
-          </div>
-        )
-      })}
-    </div>
-  )
+  }
 }
