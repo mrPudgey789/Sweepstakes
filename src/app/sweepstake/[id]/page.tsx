@@ -13,7 +13,7 @@ interface Entry {
   created_at: string
   team_id: string | null
   players: { email: string; display_name: string | null }
-  teams: { name: string; code: string; status: string } | null
+  teams: { name: string; code: string; status: string; group_letter: string } | null
 }
 
 interface SweepstakeDetail {
@@ -349,10 +349,13 @@ export default function SweepstakeManagePage() {
       {myTeamEntry?.teams && (
         <div className="bg-brand-blue rounded-2xl p-5 text-white">
           <p className="text-white/50 text-xs font-bold uppercase tracking-widest mb-2 text-center">Your team</p>
-          <div className="flex items-center justify-center gap-3 mb-4">
+          <div className="flex items-center justify-center gap-3 mb-2">
             <TeamFlag code={myTeamEntry.teams.code} size="lg" />
             <span className="heading text-3xl text-white">{myTeamEntry.teams.name}</span>
           </div>
+          {myTeamEntry.teams.group_letter && (!nextMatch || nextMatch.match_state === 'upcoming') && (
+            <p className="text-white/40 text-xs font-bold text-center mb-3">Group {myTeamEntry.teams.group_letter}</p>
+          )}
           {nextMatch && nextMatch.match_state === 'upcoming' && nextMatch.kickoff_at && (
             <div className="border-t border-white/20 pt-4 mt-2">
               <p className="text-white/50 text-xs font-bold uppercase tracking-widest mb-2">Next match</p>

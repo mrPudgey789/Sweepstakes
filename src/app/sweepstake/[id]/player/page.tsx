@@ -11,7 +11,7 @@ interface PlayerEntry {
   id: string
   payment_state: string
   team_id: string | null
-  teams: { name: string; code: string; status: string } | null
+  teams: { name: string; code: string; status: string; group_letter: string } | null
   sweepstakes: {
     name: string
     mode: string
@@ -116,7 +116,7 @@ export default function PlayerSweepstakePage() {
           .from('entries')
           .select(`
             id, payment_state, team_id,
-            teams(name, code, status),
+            teams(name, code, status, group_letter),
             sweepstakes!inner(name, mode, entry_amount, currency, paypal_link, status, winner_structure, share_slug, join_code)
           `)
           .eq('sweepstake_id', id as string)
@@ -320,7 +320,12 @@ export default function PlayerSweepstakePage() {
             </div>
           )}
           {!isEliminated && (
-            <p className="text-sm font-bold mt-2 text-white/60">{entry.teams!.code}</p>
+            <p className="text-sm font-bold mt-2 text-white/60">
+              {entry.teams!.code}
+              {entry.teams!.group_letter && myStandingRow?.stage_reached === 'group' && (
+                <span className="ml-2 text-white/40">Group {entry.teams!.group_letter}</span>
+              )}
+            </p>
           )}
         </Link>
       ) : (
@@ -398,7 +403,11 @@ export default function PlayerSweepstakePage() {
 
               {/* Stage + venue */}
               {nextMatch.stage && (
-                <p className="text-xs text-white/50 font-semibold mb-0.5">{nextMatch.stage}</p>
+                <p className="text-xs text-white/50 font-semibold mb-0.5">
+                  {nextMatch.stage === 'group' && entry.teams?.group_letter
+                    ? `Group ${entry.teams.group_letter}`
+                    : nextMatch.stage.replace(/_/g, ' ')}
+                </p>
               )}
               {nextMatch.venue && (
                 <p className="text-xs text-white/40">{nextMatch.venue}</p>
