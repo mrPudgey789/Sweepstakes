@@ -44,8 +44,10 @@ export function buildTeamIndex(teams: TeamRecord[]): {
 export function matchTeam(
   index: ReturnType<typeof buildTeamIndex>,
   tla: string | null,
-  name: string
+  name: string | null
 ): TeamRecord | null {
+  if (!tla && !name) return null
+
   // 1. Exact code match
   if (tla) {
     const byCode = index.byCode.get(tla.toUpperCase())
@@ -57,6 +59,7 @@ export function matchTeam(
     const byAlias = index.byAlias.get(tla.toUpperCase())
     if (byAlias) return byAlias
   }
+  if (!name) return null
   const byAliasName = index.byAlias.get(name.toUpperCase())
   if (byAliasName) return byAliasName
 

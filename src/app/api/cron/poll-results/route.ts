@@ -85,11 +85,15 @@ export async function GET(request: Request) {
         matchRow = byRef
       } else {
         // Fallback: match by team pair + date
+        // Knockout matches may have null teams (TBD), skip those
+        if (!fdMatch.homeTeam?.name && !fdMatch.homeTeam?.tla) continue
+        if (!fdMatch.awayTeam?.name && !fdMatch.awayTeam?.tla) continue
+
         const homeTeam = matchTeam(teamIndex, fdMatch.homeTeam.tla, fdMatch.homeTeam.name)
         const awayTeam = matchTeam(teamIndex, fdMatch.awayTeam.tla, fdMatch.awayTeam.name)
 
-        if (!homeTeam) { unmatchedTeams.push(fdMatch.homeTeam.name); continue }
-        if (!awayTeam) { unmatchedTeams.push(fdMatch.awayTeam.name); continue }
+        if (!homeTeam) { if (fdMatch.homeTeam.name) unmatchedTeams.push(fdMatch.homeTeam.name); continue }
+        if (!awayTeam) { if (fdMatch.awayTeam.name) unmatchedTeams.push(fdMatch.awayTeam.name); continue }
 
         const fdDate = fdMatch.utcDate.slice(0, 10)
         const found = (ourMatches || []).find(m => {
