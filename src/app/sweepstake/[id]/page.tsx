@@ -80,6 +80,9 @@ export default function SweepstakeManagePage() {
   const [userEmail, setUserEmail] = useState<string>('')
   const [availableTeams, setAvailableTeams] = useState<{ id: string; name: string; code: string; group_letter: string }[]>([])
   const [pickingTeam, setPickingTeam] = useState(false)
+  const [showCloseModal, setShowCloseModal] = useState(false)
+  const [showUndoToast, setShowUndoToast] = useState(false)
+  const [previousStatus, setPreviousStatus] = useState<string | null>(null)
 
   async function load() {
     const supabase = createClient()
@@ -159,11 +162,27 @@ export default function SweepstakeManagePage() {
   }
 
   async function closeSweepstake() {
+    setPreviousStatus(sweepstake?.status || null)
     const supabase = createClient()
     await supabase
       .from('sweepstakes')
       .update({ status: 'closed' })
       .eq('id', id as string)
+    setShowCloseModal(false)
+    setShowUndoToast(true)
+    setTimeout(() => setShowUndoToast(false), 8000)
+    await load()
+  }
+
+  async function reopenSweepstake(targetStatus?: string) {
+    const status = targetStatus || previousStatus || 'open'
+    const supabase = createClient()
+    await supabase
+      .from('sweepstakes')
+      .update({ status })
+      .eq('id', id as string)
+    setShowUndoToast(false)
+    setPreviousStatus(null)
     await load()
   }
 
@@ -690,14 +709,66 @@ export default function SweepstakeManagePage() {
         </div>
       </div>
 
-      {/* ── Close sweepstake (danger zone) ───────────────────────────── */}
+      {/* ── Close / Reopen sweepstake ───────────────────────────── */}
       {(sweepstake.status === 'open' || sweepstake.status === 'drawn') && (
         <div className="border-t-2 border-gray-100 pt-6">
           <button
-            onClick={closeSweepstake}
-            className="w-full rounded-full py-3 px-10 font-extrabold text-base text-red-600 border-2 border-red-200 hover:bg-red-50 active:scale-[0.97] transition-all"
+            onClick={() => setShowCloseModal(true)}
+            className="w-full rounded-full py-2.5 px-10 text-sm text-red-400 border border-red-200 hover:bg-red-50 transition-all"
           >
             Close sweepstake
+          </button>
+        </div>
+      )}
+
+      {sweepstake.status === 'closed' && (
+        <div className="border-t-2 border-gray-100 pt-6 space-y-3">
+          <p className="text-sm text-brand-navy/50 text-center">This sweepstake is closed. No new players can join.</p>
+          <button
+            onClick={() => reopenSweepstake(sweepstake.drawn_at ? 'drawn' : 'open')}
+            className="w-full btn-primary"
+          >
+            Reopen sweepstake
+          </button>
+        </div>
+      )}
+
+      {/* Close confirmation modal */}
+      {showCloseModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4" onClick={() => setShowCloseModal(false)}>
+          <div className="bg-white rounded-3xl p-8 max-w-sm w-full space-y-5" onClick={e => e.stopPropagation()}>
+            <h3 className="heading text-2xl text-brand-navy">Close this sweepstake?</h3>
+            <p className="text-sm text-brand-navy/60 leading-relaxed">
+              No new players will be able to join. Standings and results are preserved.
+              You can reopen it later if you change your mind.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowCloseModal(false)}
+                className="flex-1 btn-primary"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={closeSweepstake}
+                className="flex-1 rounded-full py-3 text-sm font-bold text-red-600 border-2 border-red-200 hover:bg-red-50 transition-all"
+              >
+                Yes, close it
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Undo toast */}
+      {showUndoToast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-brand-navy text-white px-6 py-3 rounded-full shadow-xl flex items-center gap-4 animate-slideUp">
+          <span className="text-sm font-medium">Sweepstake closed</span>
+          <button
+            onClick={() => reopenSweepstake()}
+            className="text-sm font-bold text-brand-green hover:underline"
+          >
+            Undo
           </button>
         </div>
       )}
