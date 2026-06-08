@@ -76,17 +76,21 @@ export async function GET() {
     .limit(30)
 
   // Poll status from heartbeat table
-  const { data: heartbeat } = await admin
-    .from('cron_heartbeats')
-    .select('*')
-    .eq('job_name', 'poll-results')
-    .maybeSingle()
+  const [{ data: heartbeat }, { data: feedStatus }] = await Promise.all([
+    admin.from('cron_heartbeats').select('*').eq('job_name', 'poll-results').maybeSingle(),
+    admin.from('cron_heartbeats').select('*').eq('job_name', 'feed-status').maybeSingle(),
+  ])
 
   return NextResponse.json({
     pollStatus: heartbeat ? {
       status: heartbeat.status,
       lastRun: heartbeat.last_run_at,
       details: heartbeat.details,
+    } : null,
+    feedStatus: feedStatus ? {
+      status: feedStatus.status,
+      lastRun: feedStatus.last_run_at,
+      details: feedStatus.details,
     } : null,
     totalSweepstakes: sweepstakesResult.count || 0,
     totalPlayers: playersResult.count || 0,

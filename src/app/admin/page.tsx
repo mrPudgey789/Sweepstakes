@@ -16,6 +16,7 @@ interface Stats {
   recentPlayers: { id: string; email: string; display_name: string | null; created_at: string }[]
   notifications: { queued: number; sent: number; failed: number }
   pollStatus: { status: string; lastRun: string; details: string | null } | null
+  feedStatus: { status: string; lastRun: string; details: string | null } | null
 }
 
 export default function AdminPage() {
@@ -82,6 +83,33 @@ export default function AdminPage() {
             {isError && stats.pollStatus.details && (
               <p className="text-xs text-red-600 max-w-xs truncate">{stats.pollStatus.details}</p>
             )}
+          </div>
+        )
+      })()}
+
+      {/* Feed status */}
+      {stats.feedStatus && (() => {
+        let feedData: { matchCount?: number; lastDataAt?: string; emptyCount?: number } = {}
+        try { feedData = JSON.parse(stats.feedStatus.details || '{}') } catch { /* ignore */ }
+        const isEmpty = stats.feedStatus.status === 'empty'
+        const emptyCount = feedData.emptyCount || 0
+        const lastData = feedData.lastDataAt ? new Date(feedData.lastDataAt) : null
+        const lastDataAge = lastData ? Math.round((Date.now() - lastData.getTime()) / 60000) : null
+        return (
+          <div className={`border-2 rounded-2xl p-4 flex items-center justify-between ${
+            isEmpty && emptyCount >= 3 ? 'bg-red-50 border-red-200' : isEmpty ? 'bg-yellow-50 border-yellow-200' : 'bg-green-50 border-green-200'
+          }`}>
+            <div className="flex items-center gap-3">
+              <div className={`w-3 h-3 rounded-full ${isEmpty && emptyCount >= 3 ? 'bg-red-500' : isEmpty ? 'bg-yellow-500' : 'bg-green-500'}`} />
+              <div>
+                <p className="text-sm font-bold text-brand-navy">
+                  Feed: {isEmpty ? `Empty (${emptyCount} cycles)` : `OK (${feedData.matchCount || 0} matches)`}
+                </p>
+                <p className="text-xs text-brand-navy/50">
+                  Last data: {lastData ? `${lastData.toLocaleString('en-GB')} (${lastDataAge}m ago)` : 'never'}
+                </p>
+              </div>
+            </div>
           </div>
         )
       })()}

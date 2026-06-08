@@ -24,11 +24,10 @@ export async function GET(request: Request) {
     await recordHeartbeat(supabase, 'started')
 
     const fdMatches = await fetchMatches()
+    const feedGotData = fdMatches.length > 0
 
-    if (!fdMatches.length) {
-      await recordHeartbeat(supabase, 'completed', 'No matches from API')
-      return NextResponse.json({ message: 'No matches from API' })
-    }
+    // Record feed status (separate from cron heartbeat)
+    await recordFeedStatus(supabase, feedGotData, fdMatches.length)
 
     // Get the 2026 tournament
     const { data: tournament } = await supabase
@@ -43,6 +42,13 @@ export async function GET(request: Request) {
     }
 
     const tournamentId = tournament.id
+
+    if (!feedGotData) {
+      await recordHeartbeat(supabase, 'completed', 'No matches from API (feed empty/failed)')
+      // Check for live-window alert
+      await checkLiveWindowAlert(supabase, tournamentId)
+      return NextResponse.json({ message: 'No matches from API' })
+    }
 
     // Load our teams and build the matcher index
     const { data: ourTeams } = await supabase
@@ -402,6 +408,98 @@ async function checkGroupEliminations(
   }
 
   return eliminated
+}
+
+/** Record whether the feed returned data this cycle */
+async function recordFeedStatus(
+  supabase: ReturnType<typeof createAdminClient>,
+  gotData: boolean,
+  matchCount: number
+) {
+  try {
+    if (gotData) {
+      // Feed is healthy: record last successful fetch and reset empty counter
+      await supabase.from('cron_heartbeats').upsert({
+        job_name: 'feed-status',
+        status: 'completed',
+        details: JSON.stringify({ matchCount, lastDataAt: new Date().toISOString(), emptyCount: 0 }),
+        last_run_at: new Date().toISOString(),
+      }, { onConflict: 'job_name' })
+    } else {
+      // Feed returned empty: increment counter
+      const { data: prev } = await supabase.from('cron_heartbeats')
+        .select('details').eq('job_name', 'feed-status').maybeSingle()
+      const prevData = prev?.details ? JSON.parse(prev.details as string) : {}
+      const emptyCount = (prevData.emptyCount || 0) + 1
+      await supabase.from('cron_heartbeats').upsert({
+        job_name: 'feed-status',
+        status: 'empty',
+        details: JSON.stringify({ ...prevData, emptyCount, lastEmptyAt: new Date().toISOString() }),
+        last_run_at: new Date().toISOString(),
+      }, { onConflict: 'job_name' })
+    }
+  } catch { /* best effort */ }
+}
+
+/** Alert if feed is empty during a live match window */
+async function checkLiveWindowAlert(
+  supabase: ReturnType<typeof createAdminClient>,
+  tournamentId: string
+) {
+  try {
+    // Check if any match kicked off in the last 2.5 hours and is not finished
+    const cutoff = new Date(Date.now() - 2.5 * 60 * 60 * 1000).toISOString()
+    const { data: liveMatches } = await supabase
+      .from('matches')
+      .select('id')
+      .eq('tournament_id', tournamentId)
+      .lte('kickoff_at', new Date().toISOString())
+      .gte('kickoff_at', cutoff)
+      .neq('status', 'finished')
+      .limit(1)
+
+    if (!liveMatches || liveMatches.length === 0) return // not in a live window
+
+    // Read empty count
+    const { data: feedStatus } = await supabase.from('cron_heartbeats')
+      .select('details').eq('job_name', 'feed-status').maybeSingle()
+    const statusData = feedStatus?.details ? JSON.parse(feedStatus.details as string) : {}
+    const emptyCount = statusData.emptyCount || 0
+
+    if (emptyCount < 3) return // not enough consecutive empty cycles
+
+    // Check if we already alerted recently (within 30 min) to avoid spam
+    const { data: lastAlert } = await supabase.from('cron_heartbeats')
+      .select('last_run_at').eq('job_name', 'feed-live-alert').maybeSingle()
+    if (lastAlert) {
+      const lastAlertAge = Date.now() - new Date(lastAlert.last_run_at).getTime()
+      if (lastAlertAge < 30 * 60 * 1000) return // already alerted within 30 min
+    }
+
+    // Send alert
+    const resendKey = process.env.RESEND_API_KEY
+    const from = process.env.EMAIL_FROM || 'Sweep or Weep <notifications@sweeporweep.com>'
+    if (resendKey) {
+      await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from,
+          to: 'jimmyjopeel@gmail.com',
+          subject: 'ALERT: Feed returning no data during a live match',
+          html: `<p>The football-data.org feed has returned no data for ${emptyCount} consecutive cycles while matches are live.</p><p>Scores are NOT updating. Check the API key and endpoint immediately.</p><p>Time: ${new Date().toISOString()}</p>`,
+        }),
+      })
+    }
+
+    // Record that we alerted
+    await supabase.from('cron_heartbeats').upsert({
+      job_name: 'feed-live-alert',
+      status: 'sent',
+      details: `Alerted at ${emptyCount} empty cycles`,
+      last_run_at: new Date().toISOString(),
+    }, { onConflict: 'job_name' })
+  } catch { /* best effort */ }
 }
 
 /**
