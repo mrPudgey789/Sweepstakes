@@ -53,31 +53,50 @@ async function fetchApi(path: string) {
   }
 
   const url = `${BASE_URL}${path}`
-  console.log(`[football-data] GET ${url}`)
+  const MAX_RETRIES = 3
+  const TIMEOUT_MS = 10000
 
-  const res = await fetch(url, {
-    headers: { 'X-Auth-Token': apiKey },
-    cache: 'no-store',
-  })
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS)
 
-  // Track rate limit headers
-  const limit = res.headers.get('X-Requests-Available-Minute')
-  const counter = res.headers.get('X-RequestCounter-Reset')
-  if (limit) {
-    lastRateLimit = {
-      limit: 10,
-      remaining: parseInt(limit, 10),
-      reset: counter ? parseInt(counter, 10) : 60,
+      const res = await fetch(url, {
+        headers: { 'X-Auth-Token': apiKey },
+        cache: 'no-store',
+        signal: controller.signal,
+      })
+      clearTimeout(timeout)
+
+      // Track rate limit headers
+      const limit = res.headers.get('X-Requests-Available-Minute')
+      const counter = res.headers.get('X-RequestCounter-Reset')
+      if (limit) {
+        lastRateLimit = {
+          limit: 10,
+          remaining: parseInt(limit, 10),
+          reset: counter ? parseInt(counter, 10) : 60,
+        }
+      }
+
+      if (!res.ok) {
+        const body = await res.text()
+        console.error(`[football-data] ${res.status}: ${body}`)
+        return null
+      }
+
+      return await res.json()
+    } catch (err) {
+      console.error(`[football-data] Attempt ${attempt}/${MAX_RETRIES} failed: ${err}`)
+      if (attempt < MAX_RETRIES) {
+        // Backoff: 1s, 2s
+        await new Promise(r => setTimeout(r, attempt * 1000))
+      }
     }
   }
 
-  if (!res.ok) {
-    const body = await res.text()
-    console.error(`[football-data] ${res.status}: ${body}`)
-    return null
-  }
-
-  return res.json()
+  console.error(`[football-data] All ${MAX_RETRIES} attempts failed for ${path}`)
+  return null
 }
 
 export async function fetchTeams(): Promise<FdTeam[]> {

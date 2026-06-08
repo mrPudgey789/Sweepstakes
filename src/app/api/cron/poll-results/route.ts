@@ -481,16 +481,44 @@ async function recordHeartbeat(
     // Table might not exist yet
   }
 
-  // Ping external monitor on success (dead-man's switch)
+  // Ping external monitor on success (dead-man's switch) and reset error counter
   if (status === 'completed') {
     const pingUrl = process.env.HEARTBEAT_PING_URL
     if (pingUrl) {
       try { await fetch(pingUrl, { method: 'GET' }) } catch { /* best effort */ }
     }
+    // Reset consecutive error count
+    try {
+      await supabase.from('cron_heartbeats').upsert({
+        job_name: 'poll-results-error-count',
+        status: 'completed',
+        details: '0',
+        last_run_at: new Date().toISOString(),
+      }, { onConflict: 'job_name' })
+    } catch { /* ignore */ }
   }
 
-  // Send admin alert email on error
+  // Send admin alert email only on SUSTAINED failure (3+ consecutive errors)
   if (status === 'error' && details) {
+    try {
+      // Read current consecutive error count from heartbeat
+      const { data: hb } = await supabase.from('cron_heartbeats')
+        .select('details')
+        .eq('job_name', 'poll-results-error-count')
+        .maybeSingle()
+      const prevCount = hb ? parseInt((hb.details as string) || '0') : 0
+      const errorCount = prevCount + 1
+      await supabase.from('cron_heartbeats').upsert({
+        job_name: 'poll-results-error-count',
+        status: 'error',
+        details: String(errorCount),
+        last_run_at: new Date().toISOString(),
+      }, { onConflict: 'job_name' })
+
+      // Only alert after 3 consecutive failures
+      if (errorCount < 3) return
+    } catch { /* ignore counter errors */ }
+
     const adminEmail = 'jimmyjopeel@gmail.com'
     const resendKey = process.env.RESEND_API_KEY
     const from = process.env.EMAIL_FROM || 'Sweep or Weep <notifications@sweeporweep.com>'
@@ -502,8 +530,8 @@ async function recordHeartbeat(
           body: JSON.stringify({
             from,
             to: adminEmail,
-            subject: 'ALERT: Sweep or Weep poll-results cron error',
-            html: `<p>The poll-results cron failed at ${new Date().toISOString()}</p><pre>${details}</pre><p>Check Vercel function logs for details.</p>`,
+            subject: 'ALERT: Sweep or Weep poll-results cron failing (3+ consecutive)',
+            html: `<p>The poll-results cron has failed 3+ times in a row.</p><p>Latest error at ${new Date().toISOString()}:</p><pre>${details}</pre><p>Check Vercel function logs for details.</p>`,
           }),
         })
       } catch { /* best effort */ }
