@@ -411,14 +411,13 @@ export function JoinFlow({
               if (!data.session) {
                 // Save the current path so we can redirect back after verification
                 const joinPath = window.location.pathname
-                const joinState = { sweepstakeId, joinPath, displayName, email, selectedTeam }
-                // Save to localStorage (same device) AND DB (cross-device)
-                localStorage.setItem('join_intent', JSON.stringify(joinState))
-                fetch('/api/pending-state', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ email, type: 'join_intent', state: joinState }),
-                }).catch(() => {})
+                localStorage.setItem('join_intent', JSON.stringify({
+                  sweepstakeId,
+                  joinPath,
+                  displayName,
+                  email,
+                  selectedTeam,
+                }))
                 router.push(`/auth/verify?email=${encodeURIComponent(email)}`)
                 return
               }

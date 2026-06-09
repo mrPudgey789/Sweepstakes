@@ -5,8 +5,8 @@ import { useRouter, usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
 /**
- * Checks if the user just verified their email and has a pending join/create intent.
- * Works cross-device: checks localStorage first, then falls back to the DB.
+ * Checks if the user just verified their email and has a pending join intent.
+ * If so, redirects them back to the sweepstake join page.
  * Mount this in the root layout.
  */
 export function JoinRedirect() {
@@ -14,46 +14,22 @@ export function JoinRedirect() {
   const pathname = usePathname()
 
   useEffect(() => {
-    // Only check on pages that are NOT already the target
-    if (pathname.startsWith('/j/') || pathname === '/create') return
+    // Only check on pages that are NOT the join page itself
+    if (pathname.startsWith('/j/')) return
 
+    const saved = localStorage.getItem('join_intent')
+    if (!saved) return
+
+    let intent: { joinPath?: string } | null = null
+    try { intent = JSON.parse(saved) } catch { return }
+    if (!intent?.joinPath) return
+
+    // Check if user is now logged in (just verified their email)
     const supabase = createClient()
-    supabase.auth.getUser().then(async ({ data: { user } }) => {
-      if (!user) return
-
-      // 1. Check localStorage first (same device, fastest)
-      const savedJoin = localStorage.getItem('join_intent')
-      if (savedJoin) {
-        try {
-          const intent = JSON.parse(savedJoin)
-          if (intent?.joinPath) { router.push(intent.joinPath); return }
-        } catch { /* ignore */ }
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) {
+        router.push(intent!.joinPath!)
       }
-
-      const savedWizard = localStorage.getItem('sweepstake_wizard')
-      if (savedWizard) {
-        router.push('/create')
-        return
-      }
-
-      // 2. Check DB for cross-device pending state
-      if (!user.email) return
-      try {
-        const res = await fetch(`/api/pending-state?email=${encodeURIComponent(user.email)}`)
-        if (!res.ok) return
-        const { found, type, state } = await res.json()
-        if (!found) return
-
-        if (type === 'join_intent' && state?.joinPath) {
-          // Save to localStorage so the join page can pick it up
-          localStorage.setItem('join_intent', JSON.stringify(state))
-          router.push(state.joinPath)
-        } else if (type === 'create_wizard') {
-          // Save to localStorage so the create page can pick it up
-          localStorage.setItem('sweepstake_wizard', JSON.stringify(state))
-          router.push('/create')
-        }
-      } catch { /* ignore */ }
     })
   }, [pathname, router])
 
