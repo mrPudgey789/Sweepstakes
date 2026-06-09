@@ -143,7 +143,7 @@ export default function CreateSweepstakePage() {
     const supabase = createClient()
 
     if (authMode === 'signup') {
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin
+      const appUrl = window.location.origin
       const { data, error: signUpError } = await supabase.auth.signUp({
         email: authEmail, password: authPassword,
         options: {
