@@ -68,6 +68,33 @@ export default function CreateSweepstakePage() {
       if (user) {
         setIsLoggedIn(true)
         setAuthEmail(user.email || '')
+
+        // If no localStorage state, check DB for cross-device pending state
+        if (!saved && user.email) {
+          try {
+            const res = await fetch(`/api/pending-state?email=${encodeURIComponent(user.email)}`)
+            if (res.ok) {
+              const { found, type, state } = await res.json()
+              if (found && type === 'create_wizard' && state) {
+                if (state.name) setName(state.name)
+                if (state.organiserName) setOrganiserName(state.organiserName)
+                if (state.mode) setMode(state.mode)
+                if (state.entryAmount) setEntryAmount(state.entryAmount)
+                if (state.customAmount) setCustomAmount(state.customAmount)
+                if (state.currency) setCurrency(state.currency)
+                if (state.drawPool) setDrawPool(state.drawPool)
+                if (state.winnerStructure) setWinnerStructure(state.winnerStructure)
+                if (state.paymentMethod) setPaymentMethod(state.paymentMethod)
+                if (state.paypalInput) setPaypalInput(state.paypalInput)
+                if (state.band) setBand(state.band)
+                if (state.organiserId) setOrganiserId(state.organiserId)
+                if (state.organiserPlays !== undefined) setOrganiserPlays(state.organiserPlays)
+                if (state.step) setStep(state.step)
+              }
+            }
+          } catch { /* ignore */ }
+        }
+
         const { data: organiser } = await supabase
           .from('organisers')
           .select('id, paypal_link, display_name')
@@ -136,11 +163,18 @@ export default function CreateSweepstakePage() {
         setOrganiserId(result.id)
         // If email confirmation required, save wizard state and redirect to verify
         if (!data.session) {
-          localStorage.setItem('sweepstake_wizard', JSON.stringify({
+          const wizardState = {
             name, organiserName, mode, drawPool, entryAmount, customAmount, currency, winnerStructure,
             paymentMethod, paypalInput, band, organiserId: result.id, organiserPlays,
             step: 7,
-          }))
+          }
+          // Save to localStorage (same device) AND to DB (cross-device)
+          localStorage.setItem('sweepstake_wizard', JSON.stringify(wizardState))
+          fetch('/api/pending-state', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: authEmail, type: 'create_wizard', state: wizardState }),
+          }).catch(() => {}) // best effort
           router.push(`/auth/verify?email=${encodeURIComponent(authEmail)}&next=/create`)
           return
         }
