@@ -81,6 +81,8 @@ export default function SweepstakeManagePage() {
   const [availableTeams, setAvailableTeams] = useState<{ id: string; name: string; code: string; group_letter: string }[]>([])
   const [pickingTeam, setPickingTeam] = useState(false)
   const [showCloseModal, setShowCloseModal] = useState(false)
+  const [showLockModal, setShowLockModal] = useState(false)
+  const [lockLoading, setLockLoading] = useState(false)
   const [showUndoToast, setShowUndoToast] = useState(false)
   const [previousStatus, setPreviousStatus] = useState<string | null>(null)
 
@@ -171,6 +173,18 @@ export default function SweepstakeManagePage() {
     setShowCloseModal(false)
     setShowUndoToast(true)
     setTimeout(() => setShowUndoToast(false), 8000)
+    await load()
+  }
+
+  async function lockInTeams() {
+    setLockLoading(true)
+    const supabase = createClient()
+    await supabase
+      .from('sweepstakes')
+      .update({ status: 'drawn', drawn_at: new Date().toISOString() })
+      .eq('id', id as string)
+    setShowLockModal(false)
+    setLockLoading(false)
     await load()
   }
 
@@ -528,6 +542,21 @@ export default function SweepstakeManagePage() {
         )
       })()}
 
+      {/* ── Pick mode: Lock in teams ────────────────────────────────── */}
+      {sweepstake.mode === 'pick_your_own' && sweepstake.status === 'open' && entries.length > 0 && (
+        <div>
+          <button
+            onClick={() => setShowLockModal(true)}
+            className="btn-primary w-full"
+          >
+            Lock in teams ({entries.length} players)
+          </button>
+          <p className="text-xs text-brand-navy/40 mt-2 text-center">
+            This starts the sweepstake. No new players will be able to join.
+          </p>
+        </div>
+      )}
+
       {/* ── Players / Standings ────────────────────────────────────── */}
       {sweepstake.drawn_at && standings.length > 0 ? (
         /* After draw: clean standings table (same as player page) */
@@ -763,6 +792,36 @@ export default function SweepstakeManagePage() {
                 className="flex-1 rounded-full py-3 text-sm font-bold text-red-600 border-2 border-red-200 hover:bg-red-50 transition-all"
               >
                 Yes, end it
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Lock in teams confirmation modal */}
+      {showLockModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4" onClick={() => setShowLockModal(false)}>
+          <div className="bg-white rounded-3xl p-8 max-w-sm w-full space-y-5" onClick={e => e.stopPropagation()}>
+            <h3 className="heading text-2xl text-brand-navy">Lock in teams and start?</h3>
+            <p className="text-sm text-brand-navy/60 leading-relaxed">
+              No new players will be able to join after this. Teams are locked in and the tournament begins.
+            </p>
+            <p className="text-xs text-brand-navy/40">
+              You can reopen it later if you change your mind.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowLockModal(false)}
+                className="flex-1 btn-secondary"
+              >
+                Go back
+              </button>
+              <button
+                onClick={lockInTeams}
+                disabled={lockLoading}
+                className="flex-1 btn-primary"
+              >
+                {lockLoading ? 'Locking...' : 'Start sweepstake'}
               </button>
             </div>
           </div>
