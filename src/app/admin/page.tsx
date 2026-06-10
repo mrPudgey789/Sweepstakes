@@ -12,7 +12,7 @@ interface Stats {
   totalEntries: number
   totalOrganisers: number
   sweepstakesByStatus: Record<string, number>
-  recentSweepstakes: { id: string; name: string; status: string; created_at: string; player_count: number; max_players: number | null; paid_amount: number; organiser_email: string }[]
+  recentSweepstakes: { id: string; name: string; status: string; mode: string; draw_pool: string; created_at: string; player_count: number; max_players: number | null; paid_amount: number; organiser_email: string }[]
   recentPlayers: { id: string; email: string; display_name: string | null; created_at: string }[]
   notifications: { queued: number; sent: number; failed: number }
   pollStatus: { status: string; lastRun: string; details: string | null } | null
@@ -176,7 +176,9 @@ export default function AdminPage() {
               <div key={s.id} className="px-5 py-3 flex items-center justify-between gap-3">
                 <div className="min-w-0">
                   <p className="text-sm font-bold text-brand-navy truncate">{s.name}</p>
-                  <p className="text-xs text-brand-navy/40">{s.organiser_email} · {new Date(s.created_at).toLocaleDateString('en-GB')}</p>
+                  <p className="text-xs text-brand-navy/40">
+                    {s.organiser_email} · {new Date(s.created_at).toLocaleDateString('en-GB')} · {s.mode === 'random' ? 'Random' : 'Pick'}{s.mode === 'random' ? (s.draw_pool === 'top_ranked' ? ' (top)' : ' (all 48)') : ''}
+                  </p>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <span className="text-[10px] font-bold text-brand-navy/30">{tier}</span>
