@@ -48,7 +48,7 @@ export async function GET() {
     .from('sweepstakes')
     .select('id, name, status, created_at, max_players, organiser_id, organisers(email), payments(status, amount)')
     .order('created_at', { ascending: false })
-    .limit(20)
+    .limit(100)
 
   const recentSweepstakes = []
   for (const s of recentSweeps || []) {
@@ -73,7 +73,7 @@ export async function GET() {
     .from('players')
     .select('id, email, display_name, created_at')
     .order('created_at', { ascending: false })
-    .limit(30)
+    .limit(200)
 
   // Poll status from heartbeat table
   const [{ data: heartbeat }, { data: feedStatus }] = await Promise.all([
