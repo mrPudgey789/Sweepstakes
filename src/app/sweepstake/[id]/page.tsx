@@ -700,6 +700,16 @@ export default function SweepstakeManagePage() {
                       </button>
                     </div>
                   )}
+                  {entry.payment_state === 'unpaid' && (
+                    <div className="mt-3 pt-3 border-t border-brand-navy/5">
+                      <button
+                        onClick={() => confirmPayment(entry.id, 'confirm')}
+                        className="w-full text-sm font-bold text-[#1a7a00] bg-brand-green/20 border-2 border-brand-green hover:bg-brand-green/30 py-2.5 rounded-full transition-colors"
+                      >
+                        Mark as paid
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
