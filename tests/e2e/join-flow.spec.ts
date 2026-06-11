@@ -42,6 +42,6 @@ test.describe('Join flow', () => {
     // Click Continue - should go straight to T&Cs (no verification)
     await page.getByRole('button', { name: 'Continue' }).click()
 
-    await expect(page.getByText('Terms and Conditions')).toBeVisible({ timeout: 10000 })
+    await expect(page.getByText('Terms and Conditions').first()).toBeVisible({ timeout: 10000 })
   })
 })
