@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { buildPaypalLink, formatCurrency } from '@/lib/utils'
 import { TeamFlag } from '@/components/team-flag'
-import { useRouter } from 'next/navigation'
 
 interface Props {
   sweepstakeId: string
@@ -111,9 +110,7 @@ export function JoinFlow({
   const [entryId, setEntryId] = useState<string | null>(null)
   const [authMode, setAuthMode] = useState<'signup' | 'login'>('signup')
   const [isLoggedIn, setIsLoggedIn] = useState(false)
-  const router = useRouter()
-
-  // Check if user is already logged in, or if returning from email verification
+  // Check if user is already logged in
   useEffect(() => {
     // Restore join intent from localStorage (returning from email verification)
     const saved = localStorage.getItem('join_intent')
@@ -390,40 +387,7 @@ export function JoinFlow({
                 return
               }
 
-              // Signup: create account with email verification
-              const appUrl = window.location.origin
-              const { data, error: signUpError } = await supabase.auth.signUp({
-                email,
-                password,
-                options: {
-                  data: { display_name: displayName, role: 'player' },
-                  emailRedirectTo: `${appUrl}/auth/callback?next=${encodeURIComponent(window.location.pathname)}`,
-                },
-              })
-
-              if (signUpError) {
-                setError(signUpError.message)
-                setLoading(false)
-                return
-              }
-
-              // If email confirmation required (no session), save intent and redirect
-              if (!data.session) {
-                // Save the current path so we can redirect back after verification
-                const joinPath = window.location.pathname
-                localStorage.setItem('join_intent', JSON.stringify({
-                  sweepstakeId,
-                  joinPath,
-                  displayName,
-                  email,
-                  selectedTeam,
-                }))
-                router.push(`/auth/verify?email=${encodeURIComponent(email)}`)
-                return
-              }
-
-              // Session exists (email already confirmed or confirmation disabled)
-              setIsLoggedIn(true)
+              // Signup: no email verification for players (handled by join API)
               setLoading(false)
               setStep('terms')
             }}

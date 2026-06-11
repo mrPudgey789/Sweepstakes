@@ -5,7 +5,7 @@ import { sendNotification } from '@/lib/email'
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const { sweepstake_id, email, display_name, team_id } = body
+    const { sweepstake_id, email, password, display_name, team_id } = body
 
     if (!sweepstake_id || !email || !display_name) {
       return NextResponse.json({ error: 'Missing required fields.' }, { status: 400 })
@@ -13,12 +13,33 @@ export async function POST(request: Request) {
 
     const supabase = createAdminClient()
 
-    // Link auth user to player record if not already linked
-    // (Auth signup now happens client-side with email verification)
-    const { data: userList } = await supabase.auth.admin.listUsers()
-    const authUser = userList?.users?.find(u => u.email === email)
-    if (authUser) {
-      await supabase.from('players').update({ auth_id: authUser.id }).eq('email', email)
+    // Create auth user for the player (auto-confirmed, no verification needed)
+    if (password) {
+      const { data: newUser, error: signUpErr } = await supabase.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+        user_metadata: { role: 'player', display_name },
+      })
+      if (signUpErr) {
+        if (signUpErr.message.includes('already been registered')) {
+          // User exists, link to player record
+          const { data: userList } = await supabase.auth.admin.listUsers()
+          const existing = userList?.users?.find(u => u.email === email)
+          if (existing) {
+            await supabase.from('players').update({ auth_id: existing.id }).eq('email', email)
+          }
+        }
+      } else if (newUser?.user) {
+        await supabase.from('players').update({ auth_id: newUser.user.id }).eq('email', email)
+      }
+    } else {
+      // No password (logged-in user), just link
+      const { data: userList } = await supabase.auth.admin.listUsers()
+      const authUser = userList?.users?.find(u => u.email === email)
+      if (authUser) {
+        await supabase.from('players').update({ auth_id: authUser.id }).eq('email', email)
+      }
     }
 
     // Check sweepstake exists and is open

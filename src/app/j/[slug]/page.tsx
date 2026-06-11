@@ -4,6 +4,8 @@ import { JoinFlow } from '@/components/join-flow'
 import { notFound } from 'next/navigation'
 import { formatCurrency } from '@/lib/utils'
 
+export const dynamic = 'force-dynamic'
+
 interface Props {
   params: { slug: string }
 }
