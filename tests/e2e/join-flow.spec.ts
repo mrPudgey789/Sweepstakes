@@ -28,7 +28,7 @@ test.describe('Join flow', () => {
     await expect(page.getByText('Forgot password?')).toBeVisible()
   })
 
-  test('signup flow redirects to email verification', async ({ page }) => {
+  test('signup flow advances to T&Cs without email verification', async ({ page }) => {
     const res = await page.request.get('/api/debug/test-slug')
     const { open_slug: slug } = await res.json()
 
@@ -39,10 +39,9 @@ test.describe('Join flow', () => {
     await page.getByPlaceholder('you@example.com').fill(`e2e-test-${Date.now()}@example.com`)
     await page.getByPlaceholder('Min 6 characters').fill('password123')
 
-    // Click Continue
+    // Click Continue - should go straight to T&Cs (no verification)
     await page.getByRole('button', { name: 'Continue' }).click()
 
-    // Should redirect to verify email page
-    await expect(page.getByRole('heading', { name: 'Almost there!' })).toBeVisible({ timeout: 15000 })
+    await expect(page.getByText('Terms and Conditions')).toBeVisible({ timeout: 10000 })
   })
 })
