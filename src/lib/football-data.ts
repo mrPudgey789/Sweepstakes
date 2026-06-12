@@ -139,7 +139,21 @@ export function mapStage(fdStage: string): string {
 
 // Map football-data.org match status to our enum
 export function mapStatus(fdStatus: string): string {
-  if (fdStatus === 'FINISHED') return 'finished'
-  if (fdStatus === 'IN_PLAY' || fdStatus === 'PAUSED' || fdStatus === 'LIVE') return 'live'
-  return 'scheduled'
+  switch (fdStatus) {
+    case 'FINISHED':
+    case 'AWARDED':
+      return 'finished'
+    case 'IN_PLAY':
+    case 'PAUSED':
+    case 'LIVE':
+      return 'live'
+    case 'POSTPONED':
+      return 'postponed'
+    case 'SUSPENDED':
+      return 'suspended'
+    case 'CANCELLED':
+      return 'cancelled'
+    default: // SCHEDULED, TIMED
+      return 'scheduled'
+  }
 }

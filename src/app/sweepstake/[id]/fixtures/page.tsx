@@ -328,11 +328,24 @@ export default function FixturesPage() {
                         <span className="text-xs font-extrabold px-3 py-1 rounded-full bg-gray-200 text-gray-500">
                           FT
                         </span>
-                      ) : !isLive ? (
+                      ) : isLive ? null
+                      : m.status === 'postponed' ? (
+                        <span className="text-xs font-extrabold px-3 py-1 rounded-full bg-yellow-100 text-yellow-700">
+                          Postponed
+                        </span>
+                      ) : m.status === 'suspended' ? (
+                        <span className="text-xs font-extrabold px-3 py-1 rounded-full bg-orange-100 text-orange-700">
+                          Suspended
+                        </span>
+                      ) : m.status === 'cancelled' ? (
+                        <span className="text-xs font-extrabold px-3 py-1 rounded-full bg-red-100 text-red-600">
+                          Cancelled
+                        </span>
+                      ) : (
                         <span className="text-xs font-extrabold px-3 py-1 rounded-full bg-brand-blue/10 text-brand-blue">
                           Upcoming
                         </span>
-                      ) : null}
+                      )}
                     </div>
                   </div>
                 )
